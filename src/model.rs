@@ -9,39 +9,8 @@ use sysinfo::{Pid, System};
 
 pub type ServiceStates = HashMap<String, (ServiceState, u32)>;
 
+/// A single executable service
 #[derive(Clone, Serialize, Deserialize)]
-/// `services.toml` file
-pub struct ServicesConfiguration {
-    /// Service definitions
-    pub services: HashMap<String, Service>,
-    /// Service states
-    #[serde(default)]
-    pub service_states: ServiceStates,
-}
-
-impl Default for ServicesConfiguration {
-    fn default() -> Self {
-        Self {
-            services: HashMap::new(),
-            service_states: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub enum ServiceState {
-    Running,
-    Stopped,
-}
-
-impl Default for ServiceState {
-    fn default() -> Self {
-        Self::Stopped
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-/// A single service
 pub struct Service {
     /// What command is run to start the service
     pub command: String,
@@ -143,7 +112,7 @@ impl Service {
             ));
         }
 
-        // stop service
+        // get service info
         let sys = System::new_all();
 
         if let Some(process) = sys.process(Pid::from(s.1 as usize)) {
@@ -164,8 +133,56 @@ impl Service {
             ))
         }
     }
+
+    /// Wait for a service process to stop and update its state when it does
+    pub async fn observe(name: String, service_states: ServiceStates) -> Result<()> {
+        let s = match service_states.get(&name) {
+            Some(s) => s,
+            None => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    "Service has never been run.",
+                ))
+            }
+        };
+
+        if s.0 != ServiceState::Running {
+            return Err(Error::new(
+                ErrorKind::NotConnected,
+                "Service is not running.",
+            ));
+        }
+
+        // get service
+        let sys = System::new_all();
+
+        if let Some(process) = sys.process(Pid::from(s.1 as usize)) {
+            // wait for process to stop
+            process.wait();
+            Ok(())
+        } else {
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "Failed to get process from PID.",
+            ))
+        }
+    }
 }
 
+/// The state of a [`Service`]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
+pub enum ServiceState {
+    Running,
+    Stopped,
+}
+
+impl Default for ServiceState {
+    fn default() -> Self {
+        Self::Stopped
+    }
+}
+
+/// General information about a [`ServiceState`]
 #[derive(Serialize, Deserialize)]
 pub struct ServiceInfo {
     pub name: String,
@@ -176,6 +193,27 @@ pub struct ServiceInfo {
     pub running_for_seconds: u64,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+/// `services.toml` file
+pub struct ServicesConfiguration {
+    /// Inherited service definition files
+    pub inherit: Option<Vec<String>>,
+    /// Service definitions
+    pub services: HashMap<String, Service>,
+    /// Service states
+    #[serde(default)]
+    pub service_states: ServiceStates,
+}
+
+impl Default for ServicesConfiguration {
+    fn default() -> Self {
+        Self {
+            inherit: None,
+            services: HashMap::new(),
+            service_states: HashMap::new(),
+        }
+    }
+}
 impl ServicesConfiguration {
     pub fn get_config() -> ServicesConfiguration {
         let home = env::var("HOME").expect("failed to read $HOME");
@@ -187,7 +225,24 @@ impl ServicesConfiguration {
         }
 
         match fs::read_to_string(format!("{home}/.config/sproc/services.toml")) {
-            Ok(c) => toml::from_str::<Self>(&c).unwrap(),
+            Ok(c) => {
+                let mut res = toml::from_str::<Self>(&c).unwrap();
+
+                // handle inherits
+                if let Some(ref inherit) = res.inherit {
+                    for path in inherit {
+                        if let Ok(c) = fs::read_to_string(path) {
+                            for service in toml::from_str::<Self>(&c).unwrap().services {
+                                // push service to main service stack
+                                res.services.insert(service.0, service.1);
+                            }
+                        }
+                    }
+                }
+
+                // return
+                res
+            }
             Err(_) => Self::default(),
         }
     }

@@ -1,6 +1,6 @@
 # sproc
 
-**Sproc** is a simplified process manager that is designed to act as an interface for running **simple** services that aren't expected to exit.
+**Sproc** is a simplified process manager that uses a composable configuration file to manage multiple services.
 
 ## Config
 
@@ -13,6 +13,15 @@ working_directory = "/home/example" # required
 
   [services.example.environment]    # optional
   EXAMPLE_ENV_VAR = "42"
+```
+
+You can inherit the services defined in other files using the `inherit` field. Inherited service files cannot expose an `inherit` field.
+
+```toml
+inherit = ["/path/to/other/services.toml", "/path/to/other/other/services.toml"]
+
+[services.example]
+# ...
 ```
 
 ## Usage

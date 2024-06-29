@@ -31,14 +31,16 @@ enum Commands {
     Info { name: String },
     /// Get information about all services
     InfoAll {},
+    /// Wait for service to stop and update its state accordingly
+    Track { name: String },
 }
 
 // ...
-pub mod config;
-use config::{Service, ServiceState, ServicesConfiguration};
+pub mod model;
+use model::{Service, ServiceState, ServicesConfiguration};
 
 // real main
-fn sproc<'a>() -> Result<&'a str> {
+async fn sproc<'a>() -> Result<&'a str> {
     // init
     let args = Sproc::parse();
 
@@ -140,12 +142,28 @@ fn sproc<'a>() -> Result<&'a str> {
             // return
             Ok("Finished.")
         }
+        // track
+        Commands::Track { name } => match services.services.get(name) {
+            Some(_) => {
+                // TODO: use this to create a server that can observe services and wait for them to stop (in a new thread)
+                // TODO: add "restart" to service definition, allowing observed services to automatically be restarted when stopped
+                Service::observe(name.to_string(), services.service_states.clone()).await?;
+
+                services.service_states.remove(name);
+                ServicesConfiguration::update_config(services)?;
+
+                // return
+                Ok("Service stopped.")
+            }
+            None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+        },
     }
 }
 
 // fake main
-fn main() {
-    match sproc() {
+#[tokio::main]
+async fn main() {
+    match sproc().await {
         Ok(s) => yes(s),
         Err(e) => no(&e.to_string()),
     }

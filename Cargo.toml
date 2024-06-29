@@ -1,6 +1,6 @@
 [package]
 name = "sproc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["hkau"]
 description = "Simple service management"
@@ -12,6 +12,7 @@ license = "MIT"
 clap = { version = "4.5.8", features = ["derive"] }
 serde = { version = "1.0.203", features = ["derive"] }
 sysinfo = "0.30.12"
+tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
 toml = "0.8.14"
 
 [[bin]]
