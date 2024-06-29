@@ -33,10 +33,14 @@ enum Commands {
     InfoAll {},
     /// Wait for service to stop and update its state accordingly
     Track { name: String },
+    /// Start server
+    Serve {},
 }
 
 // ...
 pub mod model;
+pub mod server;
+
 use model::{Service, ServiceState, ServicesConfiguration};
 
 // real main
@@ -50,13 +54,23 @@ async fn sproc<'a>() -> Result<&'a str> {
     // ...
     match &args.command {
         // pin
-        Commands::Pin { path } => match fs::read_to_string(path) {
-            Ok(s) => {
-                ServicesConfiguration::update_config(toml::from_str(&s).unwrap())?;
-                Ok("Services loaded.")
+        Commands::Pin { path } => {
+            match fs::read_to_string(path) {
+                Ok(s) => {
+                    // make sure no services are running
+                    for service in services.service_states {
+                        if service.1 .0 == ServiceState::Running {
+                            return Err(Error::new(ErrorKind::Other, "Cannot pin config with active service. Please run \"sproc kill-all\""));
+                        }
+                    }
+
+                    // ...
+                    ServicesConfiguration::update_config(toml::from_str(&s).unwrap())?;
+                    Ok("Services loaded.")
+                }
+                Err(e) => Err(e),
             }
-            Err(e) => Err(e),
-        },
+        }
         // run
         Commands::Run { name } => match services.services.get(name) {
             Some(_) => {
@@ -88,7 +102,7 @@ async fn sproc<'a>() -> Result<&'a str> {
         // kill
         Commands::Kill { name } => match services.services.get(name) {
             Some(_) => {
-                Service::kill(name.to_string(), services.service_states.clone())?;
+                Service::kill(name.to_string(), services.clone())?;
 
                 services.service_states.remove(name);
                 ServicesConfiguration::update_config(services)?;
@@ -101,9 +115,7 @@ async fn sproc<'a>() -> Result<&'a str> {
         // kill-all
         Commands::KillAll {} => {
             for service in &services.services {
-                if let Err(e) =
-                    Service::kill(service.0.to_string(), services.service_states.clone())
-                {
+                if let Err(e) = Service::kill(service.0.to_string(), services.clone()) {
                     println!("warn: {}", e.to_string());
                 }
 
@@ -145,8 +157,6 @@ async fn sproc<'a>() -> Result<&'a str> {
         // track
         Commands::Track { name } => match services.services.get(name) {
             Some(_) => {
-                // TODO: use this to create a server that can observe services and wait for them to stop (in a new thread)
-                // TODO: add "restart" to service definition, allowing observed services to automatically be restarted when stopped
                 Service::observe(name.to_string(), services.service_states.clone()).await?;
 
                 services.service_states.remove(name);
@@ -157,6 +167,11 @@ async fn sproc<'a>() -> Result<&'a str> {
             }
             None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
         },
+        // serve
+        Commands::Serve {} => {
+            server::server(services).await;
+            Ok("Finished.")
+        }
     }
 }
 

@@ -24,6 +24,27 @@ inherit = ["/path/to/other/services.toml", "/path/to/other/other/services.toml"]
 # ...
 ```
 
+You can configure the server key and port in the `server` field:
+
+```toml
+[server]
+port = 6374
+key = "abcd"
+
+# ...
+```
+
+The server is needed to start services that use the `restart` field. You can make services automatically restart (when spawned from the server) by setting `restart` to `true`:
+
+```toml
+[services.example]
+command = "node index.js"
+working_directory = "/home/example"
+restart = true # this service will ONLY restart when started from the server
+```
+
+It is not recommended that you manually update the pinned `services.toml` file (`$HOME/.config/sproc/services.toml`). This file is regularly updated by the CLI and server, and manual changes should ONLY be done through `sproc pin`.
+
 ## Usage
 
 Load config file:
@@ -66,4 +87,10 @@ Get info about all running services:
 
 ```bash
 sproc info-all
+```
+
+Start observation server:
+
+```bash
+sproc serve
 ```

@@ -1,6 +1,6 @@
 [package]
 name = "sproc"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["hkau"]
 description = "Simple service management"
@@ -9,6 +9,7 @@ repository = "https://github.com/hkauso/sproc"
 license = "MIT"
 
 [dependencies]
+axum = "0.7.5"
 clap = { version = "4.5.8", features = ["derive"] }
 serde = { version = "1.0.203", features = ["derive"] }
 sysinfo = "0.30.12"

@@ -10,7 +10,7 @@ use sysinfo::{Pid, System};
 pub type ServiceStates = HashMap<String, (ServiceState, u32)>;
 
 /// A single executable service
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Service {
     /// What command is run to start the service
     pub command: String,
@@ -18,6 +18,9 @@ pub struct Service {
     pub working_directory: String,
     /// Environment variables map
     pub environment: Option<HashMap<String, String>>,
+    /// If the service should restart automatically when exited (HTTP server required)
+    #[serde(default)]
+    pub restart: bool,
 }
 
 impl Service {
@@ -60,15 +63,10 @@ impl Service {
     }
 
     /// Kill service process
-    pub fn kill(name: String, service_states: ServiceStates) -> Result<()> {
-        let s = match service_states.get(&name) {
+    pub fn kill(name: String, config: ServicesConfiguration) -> Result<()> {
+        let s = match config.service_states.get(&name) {
             Some(s) => s,
-            None => {
-                return Err(Error::new(
-                    ErrorKind::NotFound,
-                    "Service has never been run.",
-                ))
-            }
+            None => return Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
         };
 
         if s.0 != ServiceState::Running {
@@ -78,12 +76,37 @@ impl Service {
             ));
         }
 
+        let mut config_c = config.clone();
+        let service = match config_c.services.get_mut(&name) {
+            Some(s) => s,
+            None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+        };
+
         // stop service
         let sys = System::new_all();
 
         match sys.process(Pid::from(s.1 as usize)) {
             Some(process) => {
+                let supposed_to_restart = service.restart.clone();
+
+                // if service is supposed to restart, toggle off and update config
+                if supposed_to_restart {
+                    // we must do this so threads that will restart this service don't
+                    service.restart = false;
+                    ServicesConfiguration::update_config(config_c.clone())?;
+                }
+
+                // kill process
                 process.kill();
+                std::thread::sleep(std::time::Duration::from_secs(1)); // wait for 1s so the server can catch up
+
+                // if service was previously supposed to restart, re-enable restart
+                if supposed_to_restart {
+                    // set config back to original form
+                    ServicesConfiguration::update_config(config.clone())?;
+                }
+
+                // return
                 Ok(())
             }
             None => Err(Error::new(
@@ -97,12 +120,7 @@ impl Service {
     pub fn info(name: String, service_states: ServiceStates) -> Result<String> {
         let s = match service_states.get(&name) {
             Some(s) => s,
-            None => {
-                return Err(Error::new(
-                    ErrorKind::NotFound,
-                    "Service has never been run.",
-                ))
-            }
+            None => return Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
         };
 
         if s.0 != ServiceState::Running {
@@ -134,16 +152,13 @@ impl Service {
         }
     }
 
+    // exit handling
+
     /// Wait for a service process to stop and update its state when it does
     pub async fn observe(name: String, service_states: ServiceStates) -> Result<()> {
         let s = match service_states.get(&name) {
             Some(s) => s,
-            None => {
-                return Err(Error::new(
-                    ErrorKind::NotFound,
-                    "Service has never been run.",
-                ))
-            }
+            None => return Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
         };
 
         if s.0 != ServiceState::Running {
@@ -167,10 +182,73 @@ impl Service {
             ))
         }
     }
+
+    /// Start and observe a service
+    async fn wait(name: String, config: &mut ServicesConfiguration) -> Result<()> {
+        // start service
+        let process = match Service::run(name.clone(), config.clone()) {
+            Ok(p) => p,
+            Err(e) => return Err(e),
+        };
+
+        // update config
+        config
+            .service_states
+            .insert(name.to_string(), (ServiceState::Running, process.id()));
+
+        ServicesConfiguration::update_config(config.clone()).expect("Failed to update config");
+        Service::observe(name.clone(), config.service_states.clone())
+            .await
+            .expect("Failed to observe service");
+
+        Ok(())
+    }
+
+    /// [`wait`] in a new task
+    pub async fn spawn(name: String) -> Result<()> {
+        // spawn task
+        tokio::task::spawn(async move {
+            loop {
+                // pull config from file
+                let mut config = ServicesConfiguration::get_config();
+
+                // start service
+                Service::wait(name.clone(), &mut config)
+                    .await
+                    .expect("Failed to wait for service");
+
+                // pull real config
+                // we have to do this so we don't restart if it was disabled while the service was running
+                let mut config = ServicesConfiguration::get_config();
+                let service = match config.services.get(&name) {
+                    Some(s) => s,
+                    None => return,
+                };
+
+                // update config
+                config.service_states.remove(&name);
+                ServicesConfiguration::update_config(config.clone())
+                    .expect("Failed to update config");
+
+                // ...
+                if service.restart == false {
+                    // no need to loop again if we aren't supposed to restart the service
+                    break;
+                }
+
+                // begin restart
+                println!("info: auto-restarting service \"{}\"", name);
+                continue; // service will be run again
+            }
+        });
+
+        // return
+        Ok(())
+    }
 }
 
 /// The state of a [`Service`]
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub enum ServiceState {
     Running,
     Stopped,
@@ -193,13 +271,34 @@ pub struct ServiceInfo {
     pub running_for_seconds: u64,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+/// `server` key in [`ServicesConfiguration`]
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ServerConfiguration {
+    /// The port to serve the HTTP server on (6374 by default)
+    pub port: u16,
+    /// The key that is required to run operations from the HTTP server
+    pub key: String,
+}
+
+impl Default for ServerConfiguration {
+    fn default() -> Self {
+        Self {
+            port: 6374,
+            key: String::new(),
+        }
+    }
+}
+
 /// `services.toml` file
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServicesConfiguration {
     /// Inherited service definition files
     pub inherit: Option<Vec<String>>,
     /// Service definitions
     pub services: HashMap<String, Service>,
+    /// Server configuration (`sproc serve`)
+    #[serde(default)]
+    pub server: ServerConfiguration,
     /// Service states
     #[serde(default)]
     pub service_states: ServiceStates,
@@ -210,6 +309,7 @@ impl Default for ServicesConfiguration {
         Self {
             inherit: None,
             services: HashMap::new(),
+            server: ServerConfiguration::default(),
             service_states: HashMap::new(),
         }
     }
