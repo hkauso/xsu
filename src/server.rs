@@ -1,4 +1,4 @@
-//! Sproc HTTP socket
+//! Sproc HTTP endpoints
 use axum::response::IntoResponse;
 use axum::{extract::State, routing::post, Json, Router};
 

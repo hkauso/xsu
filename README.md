@@ -24,6 +24,8 @@ inherit = ["/path/to/other/services.toml", "/path/to/other/other/services.toml"]
 # ...
 ```
 
+Because these files are not loaded when the main file is pinned, they can be updated and will take effect with services active. When updating the main service file, you'll have to stop all active services and pin again.
+
 You can configure the server key and port in the `server` field:
 
 ```toml
@@ -53,16 +55,16 @@ Load config file:
 sproc pin {path}
 ```
 
-Start service:
+Start service(s):
 
 ```bash
-sproc run {name}
+sproc run [names]
 ```
 
-Start a service in a new task (HTTP server required):
+Start service(s) in a new task (HTTP server required):
 
 ```bash
-sproc spawn {name}
+sproc spawn [names]
 ```
 
 Start all services:
@@ -71,10 +73,10 @@ Start all services:
 sproc run-all
 ```
 
-Stop a service:
+Stop service(s):
 
 ```bash
-sproc kill {name}
+sproc kill [names]
 ```
 
 Stop all services:
@@ -99,4 +101,10 @@ Start observation server:
 
 ```bash
 sproc serve
+```
+
+View pinned configuration:
+
+```bash
+sproc pinned
 ```

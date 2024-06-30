@@ -1,3 +1,4 @@
+//! Sproc process management (service handling)
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -25,21 +26,26 @@ pub struct Service {
 
 impl Service {
     /// Spawn service process
-    pub fn run(name: String, cnf: ServicesConfiguration) -> Result<Child> {
+    pub fn run(name: String, config: ServicesConfiguration) -> Result<Child> {
         // check current state
-        if let Some(s) = cnf.service_states.get(&name) {
+        if let Some(s) = config.service_states.get(&name) {
             // make sure service isn't already running
             if s.0 == ServiceState::Running {
                 return Err(Error::new(
                     ErrorKind::AlreadyExists,
-                    "Service is already running.",
+                    format!("Service is already running. ({name})"),
                 ));
             }
         };
 
-        let service = match cnf.services.get(&name) {
+        let service = match config.services.get(&name) {
             Some(s) => s,
-            None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Service does not exist. ({name})"),
+                ))
+            }
         };
 
         // create command
@@ -66,7 +72,12 @@ impl Service {
     pub fn kill(name: String, config: ServicesConfiguration) -> Result<()> {
         let s = match config.service_states.get(&name) {
             Some(s) => s,
-            None => return Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Service is not loaded. ({name})"),
+                ))
+            }
         };
 
         if s.0 != ServiceState::Running {
@@ -79,7 +90,12 @@ impl Service {
         let mut config_c = config.clone();
         let service = match config_c.services.get_mut(&name) {
             Some(s) => s,
-            None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Service does not exist. ({name})"),
+                ))
+            }
         };
 
         // stop service
@@ -111,7 +127,7 @@ impl Service {
             }
             None => Err(Error::new(
                 ErrorKind::NotConnected,
-                "Failed to get process from PID.",
+                format!("Failed to get process from PID. ({name})"),
             )),
         }
     }
@@ -120,13 +136,18 @@ impl Service {
     pub fn info(name: String, service_states: ServiceStates) -> Result<String> {
         let s = match service_states.get(&name) {
             Some(s) => s,
-            None => return Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Service is not loaded. ({name})"),
+                ))
+            }
         };
 
         if s.0 != ServiceState::Running {
             return Err(Error::new(
                 ErrorKind::NotConnected,
-                "Service is not running.",
+                format!("Service is not running. ({name})"),
             ));
         }
 
@@ -147,7 +168,7 @@ impl Service {
         } else {
             Err(Error::new(
                 ErrorKind::NotConnected,
-                "Failed to get process from PID.",
+                format!("Failed to get process from PID. ({name})"),
             ))
         }
     }
@@ -158,13 +179,18 @@ impl Service {
     pub async fn observe(name: String, service_states: ServiceStates) -> Result<()> {
         let s = match service_states.get(&name) {
             Some(s) => s,
-            None => return Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Service is not loaded. ({name})"),
+                ))
+            }
         };
 
         if s.0 != ServiceState::Running {
             return Err(Error::new(
                 ErrorKind::NotConnected,
-                "Service is not running.",
+                format!("Service is not running. ({name})"),
             ));
         }
 
@@ -178,7 +204,7 @@ impl Service {
         } else {
             Err(Error::new(
                 ErrorKind::NotConnected,
-                "Failed to get process from PID.",
+                format!("Failed to get process from PID. ({name})"),
             ))
         }
     }
@@ -204,7 +230,7 @@ impl Service {
         Ok(())
     }
 
-    /// [`wait`] in a new task
+    /// [`Service::wait`] in a new task
     pub async fn spawn(name: String) -> Result<()> {
         // spawn task
         tokio::task::spawn(async move {
@@ -271,7 +297,7 @@ pub struct ServiceInfo {
     pub running_for_seconds: u64,
 }
 
-/// `server` key in [`ServicesConfiguration`]
+/// Configuration for `sproc serve`
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServerConfiguration {
     /// The port to serve the HTTP server on (6374 by default)
@@ -294,11 +320,11 @@ impl Default for ServerConfiguration {
 pub struct ServicesConfiguration {
     /// Inherited service definition files
     pub inherit: Option<Vec<String>>,
-    /// Service definitions
-    pub services: HashMap<String, Service>,
     /// Server configuration (`sproc serve`)
     #[serde(default)]
     pub server: ServerConfiguration,
+    /// Service definitions
+    pub services: HashMap<String, Service>,
     /// Service states
     #[serde(default)]
     pub service_states: ServiceStates,

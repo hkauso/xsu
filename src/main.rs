@@ -20,13 +20,13 @@ enum Commands {
     /// Load configuration file
     Pin { path: String },
     /// Run a configured service
-    Run { name: String },
+    Run { names: Vec<String> },
     /// Spawn a service as a new task (HTTP server required: `srpoc serve`)
-    Spawn { name: String },
+    Spawn { names: Vec<String> },
     /// Run all services
     RunAll {},
     /// Kill a running service
-    Kill { name: String },
+    Kill { names: Vec<String> },
     /// Kill all services
     KillAll {},
     /// Get information about a running service
@@ -37,6 +37,8 @@ enum Commands {
     Track { name: String },
     /// Start server
     Serve {},
+    /// View pinned config
+    Pinned {},
 }
 
 // ...
@@ -74,46 +76,70 @@ async fn sproc<'a>() -> Result<&'a str> {
             }
         }
         // run
-        Commands::Run { name } => match services.services.get(name) {
-            Some(_) => {
-                let process = Service::run(name.to_string(), services.clone())?;
-
-                services
-                    .service_states
-                    .insert(name.to_string(), (ServiceState::Running, process.id()));
-                ServicesConfiguration::update_config(services)?;
-
-                // return
-                Ok("Service started.")
+        Commands::Run { names } => {
+            if names.len() == 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Please provide at least 1 service name.",
+                ));
             }
-            None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
-        }, // spawn
-        Commands::Spawn { name } => match services.services.get(name) {
-            Some(_) => {
-                // post request
-                let client = reqwest::Client::new();
-                match client
-                    .post(format!("http://localhost:{}/start", services.server.port))
-                    .body(format!(
-                        "{{ \"service\":\"{}\",\"key\":\"{}\" }}",
-                        name, services.server.key
-                    ))
-                    .header("Content-Type", "application/json")
-                    .send()
-                    .await
-                {
-                    Ok(r) => {
-                        let res = r.text().await.expect("Failed to read body");
 
-                        // return
-                        println!("info: body: {}", res);
-                        Ok("Request sent.")
+            for name in names {
+                match services.services.get(name) {
+                    Some(_) => {
+                        let process = Service::run(name.to_string(), services.clone())?;
+
+                        services
+                            .service_states
+                            .insert(name.to_string(), (ServiceState::Running, process.id()));
                     }
-                    Err(e) => Err(Error::new(ErrorKind::NotConnected, e.to_string())),
+                    None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
                 }
             }
-            None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
-        },
+
+            ServicesConfiguration::update_config(services)?;
+            Ok("Started all requested services.")
+        }
+        // spawn
+        Commands::Spawn { names } => {
+            if names.len() == 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Please provide at least 1 service name.",
+                ));
+            }
+
+            // post request
+            let client = reqwest::Client::new();
+
+            for name in names {
+                match services.services.get(name) {
+                    Some(_) => {
+                        match client
+                            .post(format!("http://localhost:{}/start", services.server.port))
+                            .body(format!(
+                                "{{ \"service\":\"{}\",\"key\":\"{}\" }}",
+                                name, services.server.key
+                            ))
+                            .header("Content-Type", "application/json")
+                            .send()
+                            .await
+                        {
+                            Ok(r) => {
+                                let res = r.text().await.expect("Failed to read body");
+                                println!("info: body: {}", res);
+                            }
+                            Err(e) => {
+                                return Err(Error::new(ErrorKind::NotConnected, e.to_string()))
+                            }
+                        }
+                    }
+                    None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+                }
+            }
+
+            Ok("Sent all requested requests.")
+        }
         // runall
         Commands::RunAll {} => {
             for service in &services.services {
@@ -128,18 +154,29 @@ async fn sproc<'a>() -> Result<&'a str> {
             Ok("Started all services.")
         }
         // kill
-        Commands::Kill { name } => match services.services.get(name) {
-            Some(_) => {
-                Service::kill(name.to_string(), services.clone())?;
-
-                services.service_states.remove(name);
-                ServicesConfiguration::update_config(services)?;
-
-                // return
-                Ok("Service stopped.")
+        Commands::Kill { names } => {
+            if names.len() == 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Please provide at least 1 service name.",
+                ));
             }
-            None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
-        },
+
+            for name in names {
+                match services.services.get(name) {
+                    Some(_) => {
+                        Service::kill(name.to_string(), services.clone())?;
+
+                        services.service_states.remove(name);
+                    }
+                    None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+                }
+            }
+
+            // return
+            ServicesConfiguration::update_config(services.clone())?;
+            Ok("Stopped all given services.")
+        }
         // kill-all
         Commands::KillAll {} => {
             for service in &services.services {
@@ -195,6 +232,11 @@ async fn sproc<'a>() -> Result<&'a str> {
         // serve
         Commands::Serve {} => {
             server::server(services).await;
+            Ok("Finished.")
+        }
+        // pinned
+        Commands::Pinned {} => {
+            println!("{}", toml::to_string_pretty(&services).unwrap());
             Ok("Finished.")
         }
     }
