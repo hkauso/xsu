@@ -21,6 +21,8 @@ enum Commands {
     Pin { path: String },
     /// Run a configured service
     Run { name: String },
+    /// Spawn a service as a new task (HTTP server required: `srpoc serve`)
+    Spawn { name: String },
     /// Run all services
     RunAll {},
     /// Kill a running service
@@ -85,6 +87,32 @@ async fn sproc<'a>() -> Result<&'a str> {
                 Ok("Service started.")
             }
             None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
+        }, // spawn
+        Commands::Spawn { name } => match services.services.get(name) {
+            Some(_) => {
+                // post request
+                let client = reqwest::Client::new();
+                match client
+                    .post(format!("http://localhost:{}/start", services.server.port))
+                    .body(format!(
+                        "{{ \"service\":\"{}\",\"key\":\"{}\" }}",
+                        name, services.server.key
+                    ))
+                    .header("Content-Type", "application/json")
+                    .send()
+                    .await
+                {
+                    Ok(r) => {
+                        let res = r.text().await.expect("Failed to read body");
+
+                        // return
+                        println!("info: body: {}", res);
+                        Ok("Request sent.")
+                    }
+                    Err(e) => Err(Error::new(ErrorKind::NotConnected, e.to_string())),
+                }
+            }
+            None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
         },
         // runall
         Commands::RunAll {} => {
@@ -137,10 +165,7 @@ async fn sproc<'a>() -> Result<&'a str> {
 
                 Ok("Finished.")
             }
-            None => Err(Error::new(
-                ErrorKind::NotFound,
-                "Service has never been run.",
-            )),
+            None => Err(Error::new(ErrorKind::NotFound, "Service is not loaded.")),
         },
         // info-all
         Commands::InfoAll {} => {

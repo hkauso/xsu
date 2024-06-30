@@ -59,6 +59,12 @@ Start service:
 sproc run {name}
 ```
 
+Start a service in a new task (HTTP server required):
+
+```bash
+sproc spawn {name}
+```
+
 Start all services:
 
 ```bash
