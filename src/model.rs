@@ -318,6 +318,9 @@ impl Default for ServerConfiguration {
 /// `services.toml` file
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServicesConfiguration {
+    /// The source file location
+    #[serde(default)]
+    pub source: String,
     /// Inherited service definition files
     pub inherit: Option<Vec<String>>,
     /// Server configuration (`sproc serve`)
@@ -333,6 +336,7 @@ pub struct ServicesConfiguration {
 impl Default for ServicesConfiguration {
     fn default() -> Self {
         Self {
+            source: String::new(),
             inherit: None,
             services: HashMap::new(),
             server: ServerConfiguration::default(),
@@ -341,7 +345,28 @@ impl Default for ServicesConfiguration {
     }
 }
 impl ServicesConfiguration {
-    pub fn get_config() -> ServicesConfiguration {
+    /// Read configuration file into [`ServicesConfiguration`]
+    pub fn read(contents: String) -> Self {
+        let mut res = toml::from_str::<Self>(&contents).unwrap();
+
+        // handle inherits
+        if let Some(ref inherit) = res.inherit {
+            for path in inherit {
+                if let Ok(c) = fs::read_to_string(path) {
+                    for service in toml::from_str::<Self>(&c).unwrap().services {
+                        // push service to main service stack
+                        res.services.insert(service.0, service.1);
+                    }
+                }
+            }
+        }
+
+        // return
+        res
+    }
+
+    /// Pull configuration file
+    pub fn get_config() -> Self {
         let home = env::var("HOME").expect("failed to read $HOME");
 
         if let Err(_) = fs::read_dir(format!("{home}/.config/sproc")) {
@@ -350,35 +375,28 @@ impl ServicesConfiguration {
             };
         }
 
-        match fs::read_to_string(format!("{home}/.config/sproc/services.toml")) {
-            Ok(c) => {
-                let mut res = toml::from_str::<Self>(&c).unwrap();
-
-                // handle inherits
-                if let Some(ref inherit) = res.inherit {
-                    for path in inherit {
-                        if let Ok(c) = fs::read_to_string(path) {
-                            for service in toml::from_str::<Self>(&c).unwrap().services {
-                                // push service to main service stack
-                                res.services.insert(service.0, service.1);
-                            }
-                        }
-                    }
-                }
-
-                // return
-                res
-            }
+        let path = format!("{home}/.config/sproc/services.toml");
+        match fs::read_to_string(path.clone()) {
+            Ok(c) => ServicesConfiguration::read(c),
             Err(_) => Self::default(),
         }
     }
 
-    pub fn update_config(contents: Self) -> std::io::Result<()> {
+    /// Update configuration file
+    pub fn update_config(contents: Self) -> Result<()> {
         let home = env::var("HOME").expect("failed to read $HOME");
 
         fs::write(
             format!("{home}/.config/sproc/services.toml"),
             format!("# DO **NOT** MANUALLY EDIT THIS FILE! Please edit the source instead and run `sproc pin {{path}}`.\n{}", toml::to_string_pretty::<Self>(&contents).unwrap()),
         )
+    }
+
+    /// Merge services from other [`ServicesConfiguration`]
+    pub fn merge_config(&mut self, other: Self) -> () {
+        for service in other.services {
+            // push service to main service stack
+            self.services.insert(service.0, service.1);
+        }
     }
 }

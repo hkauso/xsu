@@ -39,6 +39,10 @@ enum Commands {
     Serve {},
     /// View pinned config
     Pinned {},
+    /// Merge services from given file into **source** configuration file (unpinned file)
+    Merge { path: String },
+    /// Pull services from given file into **pinned** configuration file (use `merge` for unpinned)
+    Pull { path: String },
 }
 
 // ...
@@ -69,7 +73,17 @@ async fn sproc<'a>() -> Result<&'a str> {
                     }
 
                     // ...
-                    ServicesConfiguration::update_config(toml::from_str(&s).unwrap())?;
+                    let mut config: ServicesConfiguration = toml::from_str(&s).unwrap();
+
+                    // set source to absolute path
+                    config.source = std::fs::canonicalize(path)?
+                        .as_path()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+
+                    // return
+                    ServicesConfiguration::update_config(config)?;
                     Ok("Services loaded.")
                 }
                 Err(e) => Err(e),
@@ -238,6 +252,33 @@ async fn sproc<'a>() -> Result<&'a str> {
         Commands::Pinned {} => {
             println!("{}", toml::to_string_pretty(&services).unwrap());
             Ok("Finished.")
+        }
+        // merge
+        Commands::Merge { path } => {
+            // read file
+            let other_config = ServicesConfiguration::read(std::fs::read_to_string(path)?);
+
+            // merge and write
+            services.merge_config(other_config);
+            std::fs::write(
+                services.source.clone(),
+                toml::to_string_pretty(&services).unwrap(),
+            )?;
+
+            // return
+            Ok("Merged configuration. (source + other)")
+        }
+        // pull
+        Commands::Pull { path } => {
+            // read file
+            let other_config = ServicesConfiguration::read(std::fs::read_to_string(path)?);
+
+            // merge and write
+            services.merge_config(other_config);
+            ServicesConfiguration::update_config(services)?;
+
+            // return
+            Ok("Pulled configuration. (pinned + other)")
         }
     }
 }
