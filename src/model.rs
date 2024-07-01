@@ -370,6 +370,14 @@ impl ServicesConfiguration {
         let home = env::var("HOME").expect("failed to read $HOME");
 
         if let Err(_) = fs::read_dir(format!("{home}/.config/sproc")) {
+            // make sure .config exists
+            if let Err(_) = fs::read_dir(format!("{home}/.config")) {
+                if let Err(e) = fs::create_dir(format!("{home}/.config")) {
+                    panic!("{:?}", e);
+                }
+            }
+
+            // create .config/sproc
             if let Err(e) = fs::create_dir(format!("{home}/.config/sproc")) {
                 panic!("{:?}", e)
             };

@@ -108,3 +108,15 @@ View pinned configuration:
 ```bash
 sproc pinned
 ```
+
+Merge external services into the source configuration file (source file from `pin`):
+
+```bash
+sproc merge {path}
+```
+
+Pull external services into the stored configuration file (after `pin`):
+
+```bash
+sproc pull {path}
+```
