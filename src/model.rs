@@ -297,6 +297,18 @@ pub struct ServiceInfo {
     pub running_for_seconds: u64,
 }
 
+/// Configuration for `sproc serve`'s registry
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RegistryConfiguration {
+    pub enabled: bool,
+}
+
+impl Default for RegistryConfiguration {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
 /// Configuration for `sproc serve`
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServerConfiguration {
@@ -304,6 +316,9 @@ pub struct ServerConfiguration {
     pub port: u16,
     /// The key that is required to run operations from the HTTP server
     pub key: String,
+    /// Configuration for the registry
+    #[serde(default)]
+    pub registry: RegistryConfiguration,
 }
 
 impl Default for ServerConfiguration {
@@ -311,6 +326,7 @@ impl Default for ServerConfiguration {
         Self {
             port: 6374,
             key: String::new(),
+            registry: RegistryConfiguration::default(),
         }
     }
 }
@@ -344,6 +360,7 @@ impl Default for ServicesConfiguration {
         }
     }
 }
+
 impl ServicesConfiguration {
     /// Read configuration file into [`ServicesConfiguration`]
     pub fn read(contents: String) -> Self {
@@ -406,5 +423,103 @@ impl ServicesConfiguration {
             // push service to main service stack
             self.services.insert(service.0, service.1);
         }
+    }
+}
+
+/// Request body for updating a service
+#[derive(Serialize, Deserialize)]
+pub struct RegistryPushRequestBody {
+    /// Auth key
+    pub key: String,
+    /// The service's content
+    pub content: Service,
+}
+
+/// Request body for deleting a service
+#[derive(Serialize, Deserialize)]
+pub struct RegistryDeleteRequestBody {
+    /// Auth key
+    pub key: String,
+}
+
+/// A simple registry for service files
+#[derive(Debug, Clone)]
+pub struct Registry(ServerConfiguration, String);
+
+impl Registry {
+    /// Create a new [`Registry`]
+    pub fn new(config: ServerConfiguration) -> Self {
+        let home = env::var("HOME").expect("failed to read $HOME");
+        let dir = format!("{home}/.config/sproc/registry"); // registry file storage location
+
+        // create registry dir
+        if let Err(_) = fs::read_dir(&dir) {
+            if let Err(e) = fs::create_dir(&dir) {
+                panic!("{:?}", e);
+            }
+        }
+
+        // return
+        Self(config, dir)
+    }
+
+    /// Get a service given its name
+    pub fn get(&self, service: String) -> Result<String> {
+        if self.0.registry.enabled == false {
+            return Err(Error::new(
+                ErrorKind::PermissionDenied,
+                "Registry is disabled",
+            ));
+        }
+
+        // return
+        fs::read_to_string(format!("{}/{}.toml", self.1, service))
+    }
+
+    /// Update (or create) a service given its name and value
+    pub fn push(&self, props: RegistryPushRequestBody, service: String) -> Result<()> {
+        if self.0.registry.enabled == false {
+            return Err(Error::new(
+                ErrorKind::PermissionDenied,
+                "Registry is disabled",
+            ));
+        }
+
+        // check key
+        if props.key != self.0.key {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
+        }
+
+        // return
+        fs::write(
+            format!("{}/{}.toml", self.1, service),
+            match toml::to_string_pretty(&props.content) {
+                Ok(s) => s,
+                Err(_) => {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Could not serialize service content",
+                    ))
+                }
+            },
+        )
+    }
+
+    /// Delete a service given its name
+    pub fn delete(&self, props: RegistryDeleteRequestBody, service: String) -> Result<()> {
+        if self.0.registry.enabled == false {
+            return Err(Error::new(
+                ErrorKind::PermissionDenied,
+                "Registry is disabled",
+            ));
+        }
+
+        // check key
+        if props.key != self.0.key {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
+        }
+
+        // return
+        fs::remove_file(format!("{}/{}.toml", self.1, service))
     }
 }

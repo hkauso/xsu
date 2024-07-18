@@ -1,6 +1,7 @@
 //! Sproc process manager
 
 use clap::{Parser, Subcommand};
+use server::APIReturn;
 use std::{
     fs,
     io::{Error, ErrorKind, Result},
@@ -43,6 +44,13 @@ enum Commands {
     Merge { path: String },
     /// Pull services from given file into **pinned** configuration file (use `merge` for unpinned)
     Pull { path: String },
+    /// Install services from the given remote registry address (HTTP assumed)
+    Install {
+        registry: String,
+        names: Vec<String>,
+    },
+    /// "Uninstall" services given their names
+    Uninstall { names: Vec<String> },
 }
 
 // ...
@@ -278,6 +286,77 @@ async fn sproc<'a>() -> Result<&'a str> {
 
             // return
             Ok("Pulled configuration. (pinned + other)")
+        }
+        // install
+        Commands::Install { registry, names } => {
+            if names.len() == 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Please provide at least 1 service name.",
+                ));
+            }
+
+            // post requests
+            let client = reqwest::Client::new();
+
+            for name in names {
+                match client
+                    .get(format!("http://{}/registry/{}", registry, name))
+                    .send()
+                    .await
+                {
+                    Ok(r) => {
+                        let res: APIReturn<String> = r.json().await.expect("Failed to read body");
+
+                        if res.ok == false {
+                            return Err(Error::new(
+                                ErrorKind::Other,
+                                format!("remote: {}", res.data),
+                            ));
+                        }
+
+                        // add service
+                        services.services.insert(
+                            name.to_owned(),
+                            match toml::from_str(&res.data) {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    return Err(Error::new(ErrorKind::InvalidData, e.to_string()))
+                                }
+                            },
+                        );
+
+                        // log
+                        println!("info: installed service to pinned file: {}", name);
+                    }
+                    Err(e) => return Err(Error::new(ErrorKind::NotConnected, e.to_string())),
+                }
+            }
+
+            ServicesConfiguration::update_config(services.clone())?;
+            Ok("Sent all requested requests.")
+        }
+        // uninstall
+        Commands::Uninstall { names } => {
+            if names.len() == 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Please provide at least 1 service name.",
+                ));
+            }
+
+            for name in names {
+                if services.service_states.contains_key(name) {
+                    // kill service if it's running
+                    Service::kill(name.to_owned(), services.clone())?;
+                }
+
+                // remove service
+                services.services.remove(name);
+            }
+
+            ServicesConfiguration::update_config(services.clone())?;
+            Ok("Finished.")
         }
     }
 }
