@@ -180,7 +180,6 @@ async fn sproc<'a>() -> Result<&'a str> {
                 match services.services.get(name) {
                     Some(_) => {
                         Service::kill(name.to_string(), services.clone())?;
-
                         services.service_states.remove(name);
                     }
                     None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),

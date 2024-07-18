@@ -29,7 +29,7 @@ pub async fn not_found() -> impl IntoResponse {
 
 /// Start and observe a service (POST /start)
 pub async fn observe_request(
-    State(config): State<ServConf>,
+    State(config): State<ServConf>, // inital config from server start
     Json(body): Json<BasicServiceRequestBody>,
 ) -> impl IntoResponse {
     // check key
@@ -55,10 +55,79 @@ pub async fn observe_request(
     })
 }
 
+/// Kill a service (POST /kill)
+pub async fn kill_request(
+    State(config): State<ServConf>, // inital config from server start
+    Json(body): Json<BasicServiceRequestBody>,
+) -> impl IntoResponse {
+    // check key
+    if body.key != config.server.key {
+        return Json(APIReturn::<u16> {
+            ok: false,
+            data: 401,
+        });
+    }
+
+    // get updated config
+    let mut config = ServConf::get_config();
+
+    // kill
+    // TODO: try to clone less
+    if let Err(_) = Service::kill(body.service.clone(), config.clone()) {
+        return Json(APIReturn::<u16> {
+            ok: false,
+            data: 400,
+        });
+    };
+
+    // update config
+    config.service_states.remove(&body.service);
+    ServConf::update_config(config.clone()).unwrap();
+
+    // return
+    Json(APIReturn::<u16> {
+        ok: true,
+        data: 200,
+    })
+}
+
+/// Get service info (POST /info)
+pub async fn info_request(
+    State(config): State<ServConf>, // inital config from server start
+    Json(body): Json<BasicServiceRequestBody>,
+) -> impl IntoResponse {
+    // check key
+    if body.key != config.server.key {
+        return Json(APIReturn::<String> {
+            ok: false,
+            data: String::new(),
+        });
+    }
+
+    // get updated config
+    let config = ServConf::get_config();
+
+    // return
+    Json(APIReturn::<String> {
+        ok: true,
+        data: match Service::info(body.service.clone(), config.service_states) {
+            Ok(i) => i,
+            Err(_) => {
+                return Json(APIReturn::<String> {
+                    ok: false,
+                    data: String::new(),
+                })
+            }
+        },
+    })
+}
+
 /// Main server process
 pub async fn server(config: ServConf) {
     let app = Router::new()
         .route("/start", post(observe_request))
+        .route("/kill", post(kill_request))
+        .route("/info", post(info_request))
         .fallback(not_found)
         .with_state(config.clone());
 
