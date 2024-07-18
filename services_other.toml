@@ -1,3 +1,0 @@
-[services.example2]
-command = "echo Hello"
-working_directory = "/home/hkau"
