@@ -1,8 +1,9 @@
 //! Sproc HTTP endpoints
-use axum::extract::Path;
-use axum::response::IntoResponse;
+use askama_axum::Template;
+use axum::extract::{Path, Query};
+use axum::response::{IntoResponse, Redirect};
 use axum::routing::{delete, get};
-use axum::{extract::State, routing::post, Json, Router};
+use axum::{extract::State, response::Html, routing::post, Json, Router};
 
 use crate::model::{
     Registry, RegistryDeleteRequestBody, RegistryPushRequestBody, Service,
@@ -129,6 +130,64 @@ pub async fn info_request(
     })
 }
 
+// registry
+
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {
+    packages: Option<Vec<String>>,
+    package: Option<(String, Service)>,
+}
+
+#[derive(Deserialize)]
+pub struct IndexQuery {
+    #[serde(default)]
+    read: String,
+}
+
+pub async fn registry_index_request(
+    Query(props): Query<IndexQuery>,
+    State(registry): State<Registry>,
+) -> impl IntoResponse {
+    // view specific service
+    if !props.read.is_empty() {
+        return Html(
+            IndexTemplate {
+                packages: None,
+                package: Some(
+                    match registry.get(props.read.clone().replace(".toml", "")) {
+                        Ok(p) => (props.read, toml::from_str(&p).unwrap()),
+                        Err(e) => return Html(e.to_string()),
+                    },
+                ),
+            }
+            .render()
+            .unwrap(),
+        );
+    }
+
+    // get services
+    let mut packages = Vec::new();
+
+    for package in match std::fs::read_dir(registry.1) {
+        Ok(ls) => ls,
+        Err(e) => return Html(e.to_string()),
+    } {
+        // what in the world
+        packages.push(package.unwrap().file_name().to_string_lossy().to_string());
+    }
+
+    // return
+    Html(
+        IndexTemplate {
+            packages: Some(packages),
+            package: None,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
 /// [`Registry::get`]
 pub async fn registry_get_request(
     Path(name): Path<String>,
@@ -188,8 +247,11 @@ pub async fn registry_delete_request(
     })
 }
 
+// ...
+/// Registry routes
 pub fn registry(config: ServConf) -> Router {
     Router::new()
+        .route("/", get(registry_index_request))
         .route("/:service", get(registry_get_request))
         .route("/:service", post(registry_push_request))
         .route("/:service", delete(registry_delete_request))
@@ -202,6 +264,7 @@ pub async fn server(config: ServConf) {
         .route("/start", post(observe_request))
         .route("/kill", post(kill_request))
         .route("/info", post(info_request))
+        .route("/", get(|| async { Redirect::to("/registry") }))
         .nest_service("/registry", registry(config.clone()))
         .fallback(not_found)
         .with_state(config.clone());

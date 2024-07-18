@@ -120,3 +120,15 @@ Pull external services into the stored configuration file (after `pin`):
 ```bash
 sproc pull {path}
 ```
+
+Install a service from a remote registry:
+
+```bash
+sproc install {url} {service}
+```
+
+Uninstall a service from the pinned config file:
+
+```bash
+sproc uninstall {service}
+```

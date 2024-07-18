@@ -10,6 +10,30 @@ use sysinfo::{Pid, System};
 
 pub type ServiceStates = HashMap<String, (ServiceState, u32)>;
 
+/// [`Service`] metadata/extra information that isn't needed to run the service
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ServiceMetadata {
+    /// Source repository URL
+    #[serde(default)]
+    pub repository: String,
+    /// Description
+    #[serde(default)]
+    pub description: String,
+    /// Source license
+    #[serde(default)]
+    pub license: String,
+}
+
+impl Default for ServiceMetadata {
+    fn default() -> Self {
+        Self {
+            repository: String::new(),
+            description: "Unknown service".to_string(),
+            license: "ISC".to_string(),
+        }
+    }
+}
+
 /// A single executable service
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Service {
@@ -22,6 +46,9 @@ pub struct Service {
     /// If the service should restart automatically when exited (HTTP server required)
     #[serde(default)]
     pub restart: bool,
+    /// Metadata
+    #[serde(default)]
+    pub metadata: ServiceMetadata,
 }
 
 impl Service {
@@ -444,7 +471,7 @@ pub struct RegistryDeleteRequestBody {
 
 /// A simple registry for service files
 #[derive(Debug, Clone)]
-pub struct Registry(ServerConfiguration, String);
+pub struct Registry(ServerConfiguration, pub String);
 
 impl Registry {
     /// Create a new [`Registry`]

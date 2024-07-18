@@ -1,0 +1,77 @@
+{% extends "base.html" %} {% block title %}Registry{% endblock %} {% block
+content %}
+<article>
+    {% if packages.is_some() %}
+    <!-- prettier-ignore -->
+    {% let packages = packages.as_ref().unwrap() %}
+    <p>
+        <b>{{ packages.len() }}</b>
+        total
+    </p>
+
+    <ul>
+        {% for package in packages %}
+        <!-- prettier-ignore -->
+        <li>
+            <a href="?read={{ package }}">{{ package }}</a>
+            (<a href="?read={{ package }}" target="_blank">+</a>)
+        </li>
+        {% endfor %}
+    </ul>
+    {% else if package.is_some() %}
+    <!-- prettier-ignore -->
+    {% let package = package.as_ref().unwrap() %}
+    {% let fake_name = package.0.replace(".toml", "") %}
+    <a href="?">&lt; Back</a>
+    <h2>{{ fake_name }}</h2>
+
+    <ul>
+        <li>
+            <b>command:</b>
+            <code>{{ package.1.command }}</code>
+        </li>
+        <li>
+            <b>working_directory:</b>
+            <code>{{ package.1.working_directory }}</code>
+        </li>
+        <li>
+            <b>restart:</b>
+            <code>{{ package.1.restart }}</code>
+        </li>
+    </ul>
+
+    <h3 id="metadata">Metadata</h3>
+    <ul>
+        <li>
+            <b>repository:</b>
+            <a href="{{ package.1.metadata.repository }}" target="_blank">
+                {{ package.1.metadata.repository }}
+            </a>
+        </li>
+
+        <li>
+            <b>description:</b>
+            <code>
+                {{ package.1.metadata.description.replace("<",
+                "&lt;").replace(">", "&gt;") }}
+            </code>
+        </li>
+
+        <li>
+            <b>license:</b>
+            <code>{{ package.1.metadata.license }}</code>
+        </li>
+    </ul>
+
+    <h3 id="install">Install</h3>
+    <pre><code id="install_command"></code></pre>
+    <script>
+        document.getElementById("install_command").innerText =
+            `sproc install ${window.location.host} {{ package.0 }}`;
+    </script>
+
+    <h3 id="uninstall">Uninstall</h3>
+    <pre><code>sproc uninstall {{ package.0 }}</code></pre>
+    {% endif %}
+</article>
+{% call super() %} {% endblock %}

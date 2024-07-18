@@ -1,6 +1,6 @@
 [package]
 name = "sproc"
-version = "0.4.0"
+version = "0.4.5"
 edition = "2021"
 authors = ["hkau"]
 description = "Simple service management"
@@ -9,6 +9,8 @@ repository = "https://github.com/hkauso/sproc"
 license = "MIT"
 
 [dependencies]
+askama = { version = "0.12.1", features = ["with-axum"] }
+askama_axum = "0.4.0"
 axum = { version = "0.7.5", features = ["macros"] }
 clap = { version = "4.5.8", features = ["derive"] }
 reqwest = { version = "0.12.5", features = ["json"] }
