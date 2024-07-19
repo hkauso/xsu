@@ -1,0 +1,89 @@
+{% extends "base.html" %} {% block title %}{{ package.0 }} - Registry{% endblock
+%} {% block content %}
+<article>
+    {% let fake_name = package.0.replace(".toml", "") %}
+
+    <div class="footernav">
+        <div class="item"><a href="?">&lt; Back</a></div>
+        <div class="item">
+            <a href="?read={{ package.0 }}&action=None">View</a>
+        </div>
+        <div class="item">
+            <a href="?read={{ package.0 }}&action=Edit">Edit</a>
+        </div>
+    </div>
+
+    <h2>{{ fake_name }}</h2>
+
+    <!-- service edit page -->
+    <form id="edit_form">
+        <fieldset>
+            <legend>Authentication</legend>
+
+            <div class="row">
+                <label for="key">Key</label>
+                <input
+                    name="key"
+                    id="key"
+                    type="password"
+                    placeholder="Server Key"
+                />
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Service</legend>
+            <label for="content">Content</label>
+            <!-- prettier-ignore -->
+            <textarea name="content" id="content" required>{{ package.2 }}</textarea>
+        </fieldset>
+
+        <fieldset>
+            <legend>Actions</legend>
+
+            <div style="display: flex; gap: 0.2rem">
+                <button>Submit</button>
+                <button type="button" id="delete_button">Delete</button>
+            </div>
+        </fieldset>
+    </form>
+
+    <script>
+        document.getElementById("edit_form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            fetch("/registry/{{ fake_name }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    key: e.target.key.value,
+                    content: e.target.content.value,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+                });
+        });
+
+        document
+            .getElementById("delete_button")
+            .addEventListener("click", (e) => {
+                fetch("/registry/{{ fake_name }}", {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        key: document.getElementById("key").value,
+                    }),
+                })
+                    .then((res) => res.json())
+                    .then((res) => {
+                        alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+                    });
+            });
+    </script>
+</article>
+{% call super() %} {% endblock %}

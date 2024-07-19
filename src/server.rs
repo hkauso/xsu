@@ -133,17 +133,55 @@ pub async fn info_request(
 // registry
 
 #[derive(Template)]
-#[template(path = "index.html")]
-struct IndexTemplate {
+#[template(path = "listing.html")]
+struct ListingTemplate {
     config: RegistryConfiguration,
-    packages: Option<Vec<String>>,
-    package: Option<(String, Service)>,
+    packages: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "create.html")]
+struct CreateTemplate {
+    config: RegistryConfiguration,
+}
+
+#[derive(Template)]
+#[template(path = "view.html")]
+struct ViewTemplate {
+    config: RegistryConfiguration,
+    package: (String, Service, String),
+}
+
+#[derive(Template)]
+#[template(path = "edit.html")]
+struct EditTemplate {
+    config: RegistryConfiguration,
+    package: (String, Service, String),
+}
+
+/// A sub-action on the [`IndexTemplate`]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub enum IndexSubAction {
+    /// Nothing
+    None,
+    /// Service editor
+    Edit,
+    /// Service creator
+    Create,
+}
+
+impl Default for IndexSubAction {
+    fn default() -> Self {
+        IndexSubAction::None
+    }
 }
 
 #[derive(Deserialize)]
 pub struct IndexQuery {
     #[serde(default)]
     read: String,
+    #[serde(default)]
+    action: IndexSubAction,
 }
 
 pub async fn registry_index_request(
@@ -152,21 +190,47 @@ pub async fn registry_index_request(
 ) -> impl IntoResponse {
     // view specific service
     if !props.read.is_empty() {
-        return Html(
-            IndexTemplate {
-                config: registry.0.registry.clone(),
-                packages: None,
-                package: Some(
-                    match registry.get(props.read.clone().replace(".toml", "")) {
-                        Ok(p) => (props.read, toml::from_str(&p).unwrap()),
+        // edit
+        if props.action == IndexSubAction::Edit {
+            return Html(
+                EditTemplate {
+                    config: registry.0.registry.clone(),
+                    package: match registry.get(props.read.clone().replace(".toml", "")) {
+                        Ok(p) => (props.read, toml::from_str(&p).unwrap(), p),
                         Err(e) => return Html(e.to_string()),
                     },
-                ),
+                }
+                .render()
+                .unwrap(),
+            );
+        }
+
+        // view
+        return Html(
+            ViewTemplate {
+                config: registry.0.registry.clone(),
+                package: match registry.get(props.read.clone().replace(".toml", "")) {
+                    Ok(p) => (props.read, toml::from_str(&p).unwrap(), p),
+                    Err(e) => return Html(e.to_string()),
+                },
             }
             .render()
             .unwrap(),
         );
     }
+
+    // create
+    if props.action == IndexSubAction::Create {
+        return Html(
+            CreateTemplate {
+                config: registry.0.registry.clone(),
+            }
+            .render()
+            .unwrap(),
+        );
+    }
+
+    // listing
 
     // get services
     let mut packages = Vec::new();
@@ -181,10 +245,9 @@ pub async fn registry_index_request(
 
     // return
     Html(
-        IndexTemplate {
+        ListingTemplate {
             config: registry.0.registry,
-            packages: Some(packages),
-            package: None,
+            packages,
         }
         .render()
         .unwrap(),

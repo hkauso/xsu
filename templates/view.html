@@ -1,30 +1,21 @@
-{% extends "base.html" %} {% block title %}Registry{% endblock %} {% block
-content %}
+{% extends "base.html" %} {% block title %}{{ package.0 }} - Registry{% endblock
+%} {% block content %}
 <article>
-    {% if packages.is_some() %}
-    <!-- prettier-ignore -->
-    {% let packages = packages.as_ref().unwrap() %}
-    <p>
-        <b>{{ packages.len() }}</b>
-        total
-    </p>
-
-    <ul>
-        {% for package in packages %}
-        <!-- prettier-ignore -->
-        <li>
-            <a href="?read={{ package }}">{{ package }}</a>
-            (<a href="?read={{ package }}" target="_blank">+</a>)
-        </li>
-        {% endfor %}
-    </ul>
-    {% else if package.is_some() %}
-    <!-- prettier-ignore -->
-    {% let package = package.as_ref().unwrap() %}
     {% let fake_name = package.0.replace(".toml", "") %}
-    <a href="?">&lt; Back</a>
+
+    <div class="footernav">
+        <div class="item"><a href="?">&lt; Back</a></div>
+        <div class="item">
+            <a href="?read={{ package.0 }}&action=None">View</a>
+        </div>
+        <div class="item">
+            <a href="?read={{ package.0 }}&action=Edit">Edit</a>
+        </div>
+    </div>
+
     <h2>{{ fake_name }}</h2>
 
+    <!-- service view page -->
     <ul>
         <li>
             <b>command:</b>
@@ -72,6 +63,5 @@ content %}
 
     <h3 id="uninstall">Uninstall</h3>
     <pre><code>sproc uninstall {{ fake_name }}</code></pre>
-    {% endif %}
 </article>
 {% call super() %} {% endblock %}

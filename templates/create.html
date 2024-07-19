@@ -1,0 +1,73 @@
+{% extends "base.html" %} {% block title %}Registry{% endblock %} {% block
+content %}
+<article>
+    <div class="footernav">
+        <div class="item">
+            <a href="?action=None">&lt; Back</a>
+        </div>
+    </div>
+
+    <form id="create_form">
+        <fieldset>
+            <legend>Authentication</legend>
+
+            <div class="row">
+                <label for="key">Key</label>
+                <input
+                    name="key"
+                    id="key"
+                    type="password"
+                    placeholder="Server Key"
+                />
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Service</legend>
+
+            <label for="name">Name</label>
+            <input
+                name="name"
+                id="name"
+                type="text"
+                placeholder="Service Name"
+                required
+            />
+
+            <label for="content">Content</label>
+            <!-- prettier-ignore -->
+            <textarea name="content" id="content" placeholder="command = ..." required></textarea>
+        </fieldset>
+
+        <fieldset>
+            <legend>Actions</legend>
+            <button>Submit</button>
+        </fieldset>
+    </form>
+
+    <script>
+        document
+            .getElementById("create_form")
+            .addEventListener("submit", (e) => {
+                e.preventDefault();
+                fetch(
+                    `/registry/${e.target.name.value.replaceAll(" ", "_").replaceAll("/", "_")}`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            key: e.target.key.value,
+                            content: e.target.content.value,
+                        }),
+                    },
+                )
+                    .then((res) => res.json())
+                    .then((res) => {
+                        alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+                    });
+            });
+    </script>
+</article>
+{% call super() %} {% endblock %}

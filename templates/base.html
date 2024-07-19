@@ -101,6 +101,39 @@
                 text-wrap: pretty;
                 word-wrap: break-word;
             }
+
+            textarea {
+                width: 100%;
+                resize: vertical;
+                min-height: 10rem;
+            }
+
+            form,
+            fieldset {
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+                padding: 0.2rem;
+            }
+
+            fieldset .row {
+                display: flex;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            fieldset:hover {
+                background: rgba(0, 0, 0, 0.1);
+            }
+
+            legend,
+            label {
+                font-weight: bold;
+            }
+
+            form button {
+                width: max-content;
+            }
         </style>
     </head>
 

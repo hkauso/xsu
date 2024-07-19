@@ -465,8 +465,8 @@ impl ServicesConfiguration {
 pub struct RegistryPushRequestBody {
     /// Auth key
     pub key: String,
-    /// The service's content
-    pub content: Service,
+    /// The service's content in TOML form
+    pub content: String,
 }
 
 /// Request body for deleting a service
@@ -524,19 +524,13 @@ impl Registry {
             return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
         }
 
+        // validate
+        if let Err(e) = toml::from_str::<Service>(&props.content) {
+            return Err(Error::new(ErrorKind::InvalidInput, e.to_string()));
+        };
+
         // return
-        fs::write(
-            format!("{}/{}.toml", self.1, service),
-            match toml::to_string_pretty(&props.content) {
-                Ok(s) => s,
-                Err(_) => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        "Could not serialize service content",
-                    ))
-                }
-            },
-        )
+        fs::write(format!("{}/{}.toml", self.1, service), &props.content)
     }
 
     /// Delete a service given its name

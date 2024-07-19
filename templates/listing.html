@@ -1,0 +1,25 @@
+{% extends "base.html" %} {% block title %}Registry{% endblock %} {% block
+content %}
+<article>
+    <div class="footernav">
+        <div class="item">
+            <b>{{ packages.len() }}</b>
+            total
+        </div>
+
+        <div class="item">
+            <a href="?action=Create">New</a>
+        </div>
+    </div>
+
+    <ul>
+        {% for package in packages %}
+        <!-- prettier-ignore -->
+        <li>
+        <a href="?read={{ package }}">{{ package }}</a>
+        (<a href="?read={{ package }}" target="_blank">+</a>)
+    </li>
+        {% endfor %}
+    </ul>
+</article>
+{% call super() %} {% endblock %}
