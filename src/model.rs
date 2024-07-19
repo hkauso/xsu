@@ -327,12 +327,19 @@ pub struct ServiceInfo {
 /// Configuration for `sproc serve`'s registry
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct RegistryConfiguration {
+    /// If the registry is enabled
     pub enabled: bool,
+    /// Registry description, shown on the homepage
+    #[serde(default)]
+    pub description: String,
 }
 
 impl Default for RegistryConfiguration {
     fn default() -> Self {
-        Self { enabled: true }
+        Self {
+            enabled: true,
+            description: String::new(),
+        }
     }
 }
 
@@ -471,7 +478,7 @@ pub struct RegistryDeleteRequestBody {
 
 /// A simple registry for service files
 #[derive(Debug, Clone)]
-pub struct Registry(ServerConfiguration, pub String);
+pub struct Registry(pub ServerConfiguration, pub String);
 
 impl Registry {
     /// Create a new [`Registry`]

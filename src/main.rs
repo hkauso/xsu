@@ -316,15 +316,16 @@ async fn sproc<'a>() -> Result<&'a str> {
                         }
 
                         // add service
-                        services.services.insert(
-                            name.to_owned(),
-                            match toml::from_str(&res.data) {
-                                Ok(s) => s,
-                                Err(e) => {
-                                    return Err(Error::new(ErrorKind::InvalidData, e.to_string()))
-                                }
-                            },
-                        );
+                        let home = std::env::var("HOME").expect("failed to read $HOME");
+                        let mut service: Service = match toml::from_str(&res.data) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                return Err(Error::new(ErrorKind::InvalidData, e.to_string()))
+                            }
+                        };
+
+                        service.working_directory = service.working_directory.replace("~", &home); // make relative home exact
+                        services.services.insert(name.to_owned(), service);
 
                         // log
                         println!("info: installed service to pinned file: {}", name);

@@ -6,7 +6,7 @@ use axum::routing::{delete, get};
 use axum::{extract::State, response::Html, routing::post, Json, Router};
 
 use crate::model::{
-    Registry, RegistryDeleteRequestBody, RegistryPushRequestBody, Service,
+    Registry, RegistryConfiguration, RegistryDeleteRequestBody, RegistryPushRequestBody, Service,
     ServicesConfiguration as ServConf,
 };
 use serde::{Deserialize, Serialize};
@@ -135,6 +135,7 @@ pub async fn info_request(
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexTemplate {
+    config: RegistryConfiguration,
     packages: Option<Vec<String>>,
     package: Option<(String, Service)>,
 }
@@ -153,6 +154,7 @@ pub async fn registry_index_request(
     if !props.read.is_empty() {
         return Html(
             IndexTemplate {
+                config: registry.0.registry.clone(),
                 packages: None,
                 package: Some(
                     match registry.get(props.read.clone().replace(".toml", "")) {
@@ -180,6 +182,7 @@ pub async fn registry_index_request(
     // return
     Html(
         IndexTemplate {
+            config: registry.0.registry,
             packages: Some(packages),
             package: None,
         }

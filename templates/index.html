@@ -67,11 +67,11 @@ content %}
     <pre><code id="install_command"></code></pre>
     <script>
         document.getElementById("install_command").innerText =
-            `sproc install ${window.location.host} {{ package.0 }}`;
+            `sproc install ${window.location.host} {{ fake_name }}`;
     </script>
 
     <h3 id="uninstall">Uninstall</h3>
-    <pre><code>sproc uninstall {{ package.0 }}</code></pre>
+    <pre><code>sproc uninstall {{ fake_name }}</code></pre>
     {% endif %}
 </article>
 {% call super() %} {% endblock %}
