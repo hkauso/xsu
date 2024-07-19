@@ -1,9 +1,11 @@
 //! Sproc process manager
 use clap::{Parser, Subcommand};
 use server::APIReturn;
-use std::{
+use std::io::{Error, ErrorKind, Result};
+
+use xsu_util::{
     fs,
-    io::{Error, ErrorKind, Result},
+    process::{no, yes},
 };
 
 // ...
@@ -70,7 +72,7 @@ async fn sproc<'a>() -> Result<&'a str> {
     match &args.command {
         // pin
         Commands::Pin { path } => {
-            match fs::read_to_string(path) {
+            match fs::read(path) {
                 Ok(s) => {
                     // make sure no services are running
                     for service in services.service_states {
@@ -83,7 +85,7 @@ async fn sproc<'a>() -> Result<&'a str> {
                     let mut config: ServicesConfiguration = toml::from_str(&s).unwrap();
 
                     // set source to absolute path
-                    config.source = std::fs::canonicalize(path)?
+                    config.source = fs::canonicalize(path)?
                         .as_path()
                         .to_str()
                         .unwrap()
@@ -345,9 +347,10 @@ async fn sproc<'a>() -> Result<&'a str> {
                         service.working_directory = service.working_directory.replace("~", &home);
 
                         // make build dir exact
-                        service.working_directory = service
-                            .working_directory
-                            .replace("@", &format!("{home}/.config/sproc/modules/{name}"));
+                        service.working_directory = service.working_directory.replace(
+                            "@",
+                            &format!("{home}/.config/xsu-apps/sproc/modules/{name}"),
+                        );
 
                         // push service
                         services.services.insert(name.to_owned(), service);
@@ -379,8 +382,9 @@ async fn sproc<'a>() -> Result<&'a str> {
 
                 // remove directory
                 let home = std::env::var("HOME").expect("failed to read $HOME");
-                if let Ok(_) = fs::read_dir(format!("{home}/.config/sproc/modules/{name}")) {
-                    fs::remove_dir_all(format!("{home}/.config/sproc/modules/{name}"))?
+                if let Ok(_) = fs::read_dir(format!("{home}/.config/xsu-apps/sproc/modules/{name}"))
+                {
+                    fs::remove_dir_all(format!("{home}/.config/xsu-apps/sproc/modules/{name}"))?
                 }
 
                 // remove service
@@ -400,14 +404,4 @@ async fn main() {
         Ok(s) => yes(s),
         Err(e) => no(&e.to_string()),
     }
-}
-
-fn no(msg: &str) -> () {
-    println!("\x1b[91m{}\x1b[0m", format!("error:\x1b[0m {msg}"));
-    std::process::exit(1);
-}
-
-fn yes(msg: &str) -> () {
-    println!("\x1b[92m{}\x1b[0m", format!("success:\x1b[0m {msg}"));
-    std::process::exit(0);
 }

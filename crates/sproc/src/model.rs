@@ -2,11 +2,12 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    env, fs,
+    env,
     io::{BufRead, BufReader, Error, ErrorKind, Result},
     process::{Child, Command, Stdio},
 };
 use sysinfo::{Pid, System};
+use xsu_util::fs;
 
 pub type ServiceStates = HashMap<String, (ServiceState, u32)>;
 
@@ -25,7 +26,7 @@ pub struct ServiceMetadata {
     /// Source license
     #[serde(default)]
     pub license: String,
-    /// Service build steps run in `~/.config/sproc/modules/:name`
+    /// Service build steps run in `~/.config/xsu-apps/sproc/modules/:name`
     #[serde(default)]
     pub build: Vec<String>,
 }
@@ -333,14 +334,14 @@ impl Service {
         let home = env::var("HOME").expect("failed to read $HOME");
 
         // verify modules directory
-        if let Err(_) = fs::read_dir(format!("{home}/.config/sproc/modules")) {
-            if let Err(e) = fs::create_dir(format!("{home}/.config/sproc/modules")) {
+        if let Err(_) = fs::read_dir(format!("{home}/.config/xsu-apps/sproc/modules")) {
+            if let Err(e) = fs::create_dir(format!("{home}/.config/xsu-apps/sproc/modules")) {
                 panic!("{:?}", e);
             }
         }
 
         // check for existing directory
-        let dir = format!("{home}/.config/sproc/modules/{}", name);
+        let dir = format!("{home}/.config/xsu-apps/sproc/modules/{}", name);
 
         if let Ok(_) = fs::read_dir(&dir) {
             return Err(Error::new(ErrorKind::AlreadyExists, "The requested service has already run its build commands or its build directory already exists."));
@@ -512,22 +513,20 @@ impl ServicesConfiguration {
     pub fn get_config() -> Self {
         let home = env::var("HOME").expect("failed to read $HOME");
 
-        if let Err(_) = fs::read_dir(format!("{home}/.config/sproc")) {
+        if let Err(_) = fs::read_dir(format!("{home}/.config/xsu-apps/sproc")) {
             // make sure .config exists
-            if let Err(_) = fs::read_dir(format!("{home}/.config")) {
-                if let Err(e) = fs::create_dir(format!("{home}/.config")) {
-                    panic!("{:?}", e);
-                }
-            }
+            fs::mkdir(format!("{home}/.config")).expect("failed to create .config directory");
 
-            // create .config/sproc
-            if let Err(e) = fs::create_dir(format!("{home}/.config/sproc")) {
-                panic!("{:?}", e)
-            };
+            // make sure .config/xsu-apps exists
+            fs::mkdir(format!("{home}/.config/xsu-apps"))
+                .expect("failed to create xsu-apps directory");
+
+            // create .config/xsu-apps/sproc
+            fs::mkdir(format!("{home}/.config/xsu-apps/sproc"))
+                .expect("failed to create sproc directory")
         }
 
-        let path = format!("{home}/.config/sproc/services.toml");
-        match fs::read_to_string(path.clone()) {
+        match fs::read(format!("{home}/.config/xsu-apps/sproc/services.toml")) {
             Ok(c) => ServicesConfiguration::read(c),
             Err(_) => Self::default(),
         }
@@ -538,7 +537,7 @@ impl ServicesConfiguration {
         let home = env::var("HOME").expect("failed to read $HOME");
 
         fs::write(
-            format!("{home}/.config/sproc/services.toml"),
+            format!("{home}/.config/xsu-apps/sproc/services.toml"),
             format!("# DO **NOT** MANUALLY EDIT THIS FILE! Please edit the source instead and run `sproc pin {{path}}`.\n{}", toml::to_string_pretty::<Self>(&contents).unwrap()),
         )
     }
@@ -576,14 +575,10 @@ impl Registry {
     /// Create a new [`Registry`]
     pub fn new(config: ServerConfiguration) -> Self {
         let home = env::var("HOME").expect("failed to read $HOME");
-        let dir = format!("{home}/.config/sproc/registry"); // registry file storage location
+        let dir = format!("{home}/.config/xsu-apps/sproc/registry"); // registry file storage location
 
         // create registry dir
-        if let Err(_) = fs::read_dir(&dir) {
-            if let Err(e) = fs::create_dir(&dir) {
-                panic!("{:?}", e);
-            }
-        }
+        fs::mkdir(&dir).expect("failed to create directory");
 
         // return
         Self(config, dir)
@@ -599,7 +594,7 @@ impl Registry {
         }
 
         // return
-        fs::read_to_string(format!("{}/{}.toml", self.1, service))
+        fs::read(format!("{}/{}.toml", self.1, service))
     }
 
     /// Update (or create) a service given its name and value
@@ -640,6 +635,6 @@ impl Registry {
         }
 
         // return
-        fs::remove_file(format!("{}/{}.toml", self.1, service))
+        fs::rm(format!("{}/{}.toml", self.1, service))
     }
 }

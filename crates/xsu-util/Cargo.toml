@@ -1,0 +1,14 @@
+[package]
+name = "xsu-util"
+version = "0.1.0"
+edition = "2021"
+authors = ["hkau"]
+description = "Basic utilities"
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+[dependencies]
+
+[lib]
+doctest = false

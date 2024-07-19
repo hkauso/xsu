@@ -1,3 +1,9 @@
+build:
+    cargo build -r
+
+build-d:
+    cargo build
+
 publish:
     cargo publish --allow-dirty
 

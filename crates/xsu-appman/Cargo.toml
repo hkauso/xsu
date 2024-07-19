@@ -1,0 +1,25 @@
+[package]
+name = "xsu-appman"
+version = "0.1.0"
+edition = "2021"
+authors = ["hkau"]
+description = "Application manager"
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+[dependencies]
+clap = "4.5.9"
+mime_guess = "2.0.5"
+tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1.0.203", features = ["derive"] }
+toml = "0.8.14"
+xsu-util = { path = "../xsu-util" }
+
+[[bin]]
+path = "src/main.rs"
+name = "xsu-appman"
+test = false
+
+[lib]
+doctest = false

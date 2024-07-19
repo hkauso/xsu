@@ -1,0 +1,24 @@
+[package]
+name = "xsu-open"
+version = "0.1.0"
+edition = "2021"
+authors = ["hkau"]
+description = "Open files and URIs in their correct application"
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+[dependencies]
+clap = "4.5.9"
+mime_guess = "2.0.5"
+tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1.0.203", features = ["derive"] }
+toml = "0.8.14"
+xsu-util = { path = "../xsu-util" }
+xsu-appman = { path = "../xsu-appman" }
+
+
+[[bin]]
+path = "src/main.rs"
+name = "xsu-open"
+test = false

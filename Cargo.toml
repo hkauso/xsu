@@ -1,28 +1,8 @@
-[package]
-name = "sproc"
-version = "0.5.6"
-edition = "2021"
-authors = ["hkau"]
-description = "Simple service management"
-homepage = "https://github.com/hkauso/sproc"
-repository = "https://github.com/hkauso/sproc"
-license = "MIT"
-
-[dependencies]
-askama = { version = "0.12.1", features = ["with-axum"] }
-askama_axum = "0.4.0"
-axum = { version = "0.7.5", features = ["macros", "form"] }
-clap = { version = "4.5.8", features = ["derive"] }
-reqwest = { version = "0.12.5", features = ["json"] }
-serde = { version = "1.0.203", features = ["derive"] }
-sysinfo = "0.30.12"
-tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
-toml = "0.8.14"
-
-[[bin]]
-path = "src/main.rs"
-name = "sproc"
-test = false
-
-[lib]
-doctest = false
+[workspace]
+resolver = "2"
+members = [
+    "crates/sproc",
+    "crates/xsu-util",
+    "crates/xsu-appman", 
+    "crates/xsu-open"
+]
