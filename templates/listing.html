@@ -16,9 +16,9 @@ block content %}
         {% for package in packages %}
         <!-- prettier-ignore -->
         <li>
-        <a href="?read={{ package }}">{{ package }}</a>
-        (<a href="?read={{ package }}" target="_blank">+</a>)
-    </li>
+            <a href="?read={{ package }}">{{ package }}</a>
+            (<a href="?read={{ package }}" target="_blank" title="Open in new window">+</a>)
+        </li>
         {% endfor %}
     </ul>
 </article>

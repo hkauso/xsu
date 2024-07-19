@@ -1,0 +1,33 @@
+{% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
+block content %}
+<article>
+    <p>
+        Please select a valid page to continue. You may also need to
+        authenticate before some pages can be loaded (🔐).
+    </p>
+
+    <ul>
+        <li><a href="?action=List">🌐 Service list</a></li>
+        <li><a href="?action=Manage">🔐 Manage server</a></li>
+    </ul>
+
+    <hr />
+    <form action="" method="POST">
+        <fieldset>
+            <legend>Authenticate</legend>
+
+            <div class="row">
+                <label for="key">Key</label>
+                <input
+                    name="key"
+                    id="key"
+                    type="password"
+                    placeholder="Server Key"
+                />
+            </div>
+
+            <button>Submit</button>
+        </fieldset>
+    </form>
+</article>
+{% call super() %} {% endblock %}

@@ -90,6 +90,7 @@
                 border: solid 1px gray;
                 overflow: auto;
                 max-width: 100%;
+                background: white;
             }
 
             p,
@@ -135,6 +136,15 @@
             form button {
                 width: max-content;
             }
+
+            button {
+                height: max-content;
+            }
+
+            button:disabled {
+                cursor: not-allowed;
+                opacity: 75%;
+            }
         </style>
     </head>
 
@@ -149,11 +159,15 @@
             <hr />
             <div class="footernav">
                 <div class="item">
-                    <a href="https://github.com/hkauso/sproc">View Source</a>
+                    <a href="?">🌐 Home</a>
                 </div>
 
                 <div class="item">
-                    <a href="https://docs.rs/sproc">Documentation</a>
+                    <a href="https://github.com/hkauso/sproc">📖 View Source</a>
+                </div>
+
+                <div class="item">
+                    <a href="https://docs.rs/sproc">📖 Documentation</a>
                 </div>
             </div>
         </main>

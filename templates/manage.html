@@ -1,0 +1,254 @@
+{% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
+block content %}
+<article>
+    <div class="footernav">
+        <div class="item">
+            <a href="?">&lt; Back</a>
+        </div>
+
+        <div class="item">
+            <b>{{ services.len() }}</b>
+            total
+        </div>
+    </div>
+
+    <fieldset>
+        <legend>Server Services</legend>
+
+        <div style="display: flex; flex-direction: column">
+            {% for service in services %}
+            <!-- prettier-ignore -->
+            <div style="display: flex; gap: 0.5rem">
+                {% if !service.2 %}
+                    <button onclick="globalThis.start_service(event, '{{ service.0 }}')">Start</button>
+                    <button 
+                        onclick="globalThis.uninstall_service(event, '{{ service.0 }}')"
+                        id="{{ service.0 }}/buttons/uninstall"
+                    >
+                        Uninstall
+                    </button>
+                {% else %}
+                    <button onclick="globalThis.kill_service(event, '{{ service.0 }}')">Stop</button>
+                    <button 
+                        onclick="globalThis.get_service_info(event, '{{ service.0 }}')" 
+                        id="{{ service.0 }}/buttons/info"
+                    >
+                        Info
+                    </button>
+                {% endif %}
+
+
+                <details style="width: 100%">
+                    <summary>{{ service.0 }}</summary>
+
+                    <div style="display: flex; flex-direction: column">
+                        <pre><code id="{{ service.0 }}/boxes/command">{{ service.1.command }}</code></pre>
+                        <pre><code id="{{ service.0 }}/boxes/info"></code></pre>
+                    </div>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Install Service</legend>
+
+        <div style="display: flex; flex-direction: column">
+            <form id="install_form">
+                <div class="row">
+                    <label for="registry">Registry</label>
+
+                    <div style="display: flex; gap: 0.2rem">
+                        <button
+                            onclick="document.getElementById('registry').value = window.location.host"
+                            title="Use this registry"
+                            type="button"
+                        >
+                            T
+                        </button>
+
+                        <input
+                            name="registry"
+                            id="registry"
+                            type="text"
+                            placeholder="swmff.org"
+                        />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label for="service">Service</label>
+                    <input
+                        name="service"
+                        id="service"
+                        type="text"
+                        placeholder="Service Name"
+                    />
+                </div>
+
+                <button id="install_button">Submit</button>
+            </form>
+        </div>
+    </fieldset>
+
+    <!-- prettier-ignore -->
+    <script type="text/plain" id="key">{{ key }}</script>
+
+    <script>
+        globalThis.start_service = (e, name) => {
+            fetch("/start", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    key: document.getElementById("key").innerText,
+                    service: name,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+
+                    if (res.ok) {
+                        // swap buttons
+                        e.target.innerText = "Stop";
+                        e.target.setAttribute(
+                            "onclick",
+                            `globalThis.kill_service(event, '${name}')`,
+                        );
+
+                        document.getElementById(
+                            `${name}/buttons/uninstall`,
+                        ).innerText = "Info";
+                        document
+                            .getElementById(`${name}/buttons/uninstall`)
+                            .setAttribute(
+                                "onclick",
+                                `globalThis.get_service_info(event, '${name}')`,
+                            );
+                        document.getElementById(
+                            `${name}/buttons/uninstall`,
+                        ).id = `${name}/buttons/info`;
+                    }
+                });
+        };
+
+        globalThis.kill_service = (e, name) => {
+            fetch("/kill", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    key: document.getElementById("key").innerText,
+                    service: name,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+
+                    if (res.ok) {
+                        // swap buttons
+                        e.target.innerText = "Start";
+                        e.target.setAttribute(
+                            "onclick",
+                            `globalThis.start_service(event, '${name}')`,
+                        );
+
+                        document.getElementById(
+                            `${name}/buttons/info`,
+                        ).innerText = "Uninstall";
+                        document
+                            .getElementById(`${name}/buttons/info`)
+                            .setAttribute(
+                                "onclick",
+                                `globalThis.uninstall_service(event, '${name}')`,
+                            );
+                        document.getElementById(`${name}/buttons/info`).id =
+                            `${name}/buttons/uninstall`;
+                    }
+                });
+        };
+
+        globalThis.uninstall_service = (e, name) => {
+            if (!confirm("Are you sure you would like to do this?")) {
+                return;
+            }
+
+            fetch("/uninstall", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    key: document.getElementById("key").innerText,
+                    service: name,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+
+                    if (res.ok) {
+                        window.location.reload();
+                    }
+                });
+        };
+
+        globalThis.get_service_info = (e, name) => {
+            fetch("/info", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    key: document.getElementById("key").innerText,
+                    service: name,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    document.getElementById(`${name}/boxes/info`).innerText =
+                        res.data;
+                });
+        };
+
+        document
+            .getElementById("install_form")
+            .addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                if (!confirm("Are you sure you would like to do this?")) {
+                    return;
+                }
+
+                document
+                    .getElementById("install_button")
+                    .setAttribute("disabled", "");
+
+                fetch("/install", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        key: document.getElementById("key").innerText,
+                        registry: e.target.registry.value,
+                        service: e.target.service.value,
+                    }),
+                })
+                    .then((res) => res.json())
+                    .then((res) => {
+                        e.target.reset();
+                        alert(`${res.ok ? "OK" : "ERR"} ${res.data}`);
+                        document
+                            .getElementById("install_button")
+                            .removeAttribute("disabled");
+                    });
+            });
+    </script>
+</article>
+{% call super() %} {% endblock %}
