@@ -1,6 +1,6 @@
 [package]
 name = "sproc"
-version = "0.4.7"
+version = "0.5.0"
 edition = "2021"
 authors = ["hkau"]
 description = "Simple service management"

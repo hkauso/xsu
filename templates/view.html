@@ -1,5 +1,5 @@
-{% extends "base.html" %} {% block title %}{{ package.0 }} - Registry{% endblock
-%} {% block content %}
+{% extends "base.html" %} {% block title %}{{ package.0 }} - {{ config.name }}{%
+endblock %} {% block content %}
 <article>
     {% let fake_name = package.0.replace(".toml", "") %}
 
@@ -16,52 +16,75 @@
     <h2>{{ fake_name }}</h2>
 
     <!-- service view page -->
-    <ul>
-        <li>
-            <b>command:</b>
-            <code>{{ package.1.command }}</code>
-        </li>
-        <li>
-            <b>working_directory:</b>
-            <code>{{ package.1.working_directory }}</code>
-        </li>
-        <li>
-            <b>restart:</b>
-            <code>{{ package.1.restart }}</code>
-        </li>
-    </ul>
+    <section>
+        <ul>
+            <li>
+                <b>command:</b>
+                <code>{{ package.1.command }}</code>
+            </li>
+            <li>
+                <b>working_directory:</b>
+                <code>{{ package.1.working_directory }}</code>
+            </li>
+            <li>
+                <b>restart:</b>
+                <code>{{ package.1.restart }}</code>
+            </li>
+        </ul>
+    </section>
 
-    <h3 id="metadata">Metadata</h3>
-    <ul>
-        <li>
-            <b>repository:</b>
-            <a href="{{ package.1.metadata.repository }}" target="_blank">
-                {{ package.1.metadata.repository }}
-            </a>
-        </li>
+    <section>
+        <h3 id="metadata">Metadata</h3>
+        <ul>
+            <li>
+                <b>owner:</b>
+                <code>{{ package.1.metadata.owner }}</code>
+            </li>
 
-        <li>
-            <b>description:</b>
-            <code>
-                {{ package.1.metadata.description.replace("<",
-                "&lt;").replace(">", "&gt;") }}
-            </code>
-        </li>
+            <li>
+                <b>repository:</b>
+                <a href="{{ package.1.metadata.repository }}" target="_blank">
+                    {{ package.1.metadata.repository }}
+                </a>
+            </li>
 
-        <li>
-            <b>license:</b>
-            <code>{{ package.1.metadata.license }}</code>
-        </li>
-    </ul>
+            <li>
+                <b>description:</b>
+                <code>
+                    {{ package.1.metadata.description.replace("<",
+                    "&lt;").replace(">", "&gt;") }}
+                </code>
+            </li>
 
-    <h3 id="install">Install</h3>
-    <pre><code id="install_command"></code></pre>
-    <script>
-        document.getElementById("install_command").innerText =
-            `sproc install ${window.location.host} {{ fake_name }}`;
-    </script>
+            <li>
+                <b>license:</b>
+                <code>{{ package.1.metadata.license }}</code>
+            </li>
+        </ul>
+    </section>
 
-    <h3 id="uninstall">Uninstall</h3>
-    <pre><code>sproc uninstall {{ fake_name }}</code></pre>
+    <section>
+        <h3 id="build-steps">Build Steps</h3>
+        <!-- prettier-ignore -->
+        <p>
+            These are automatically run after <a href="#install">install</a>.
+            Please make sure they're safe before you install the service.
+        </p>
+
+        <!-- prettier-ignore -->
+        <pre>{% for step in package.1.metadata.build %}<code>{{ step }}</code><br />{% endfor %}</pre>
+    </section>
+
+    <section>
+        <h3 id="install">Install</h3>
+        <pre><code id="install_command"></code></pre>
+        <script>
+            document.getElementById("install_command").innerText =
+                `sproc install ${window.location.host} {{ fake_name }}`;
+        </script>
+
+        <h3 id="uninstall">Uninstall</h3>
+        <pre><code>sproc uninstall {{ fake_name }}</code></pre>
+    </section>
 </article>
 {% call super() %} {% endblock %}

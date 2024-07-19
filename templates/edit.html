@@ -1,5 +1,5 @@
-{% extends "base.html" %} {% block title %}{{ package.0 }} - Registry{% endblock
-%} {% block content %}
+{% extends "base.html" %} {% block title %}{{ package.0 }} - {{ config.name }}{%
+endblock %} {% block content %}
 <article>
     {% let fake_name = package.0.replace(".toml", "") %}
 

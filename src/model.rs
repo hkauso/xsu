@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     env, fs,
-    io::{Error, ErrorKind, Result},
-    process::{Child, Command},
+    io::{BufRead, BufReader, Error, ErrorKind, Result},
+    process::{Child, Command, Stdio},
 };
 use sysinfo::{Pid, System};
 
@@ -13,6 +13,9 @@ pub type ServiceStates = HashMap<String, (ServiceState, u32)>;
 /// [`Service`] metadata/extra information that isn't needed to run the service
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServiceMetadata {
+    /// Service owner
+    #[serde(default)]
+    pub owner: String,
     /// Source repository URL
     #[serde(default)]
     pub repository: String,
@@ -22,21 +25,44 @@ pub struct ServiceMetadata {
     /// Source license
     #[serde(default)]
     pub license: String,
+    /// Service build steps run in `~/.config/sproc/modules/:name`
+    #[serde(default)]
+    pub build: Vec<String>,
 }
 
 impl Default for ServiceMetadata {
     fn default() -> Self {
         Self {
+            owner: String::new(),
             repository: String::new(),
             description: "Unknown service".to_string(),
             license: "ISC".to_string(),
+            build: Vec::new(),
         }
+    }
+}
+
+/// [`Service`] type
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub enum ServiceType {
+    /// A service that is run in the background and tracks the PID
+    Service,
+    /// A service that does not run in the background and does not track PID
+    Application,
+}
+
+impl Default for ServiceType {
+    fn default() -> Self {
+        Self::Service
     }
 }
 
 /// A single executable service
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Service {
+    /// What the type of the service is
+    #[serde(default)]
+    pub r#type: ServiceType,
     /// What command is run to start the service
     pub command: String,
     /// Where the `command` is run
@@ -53,7 +79,7 @@ pub struct Service {
 
 impl Service {
     /// Spawn service process
-    pub fn run(name: String, config: ServicesConfiguration) -> Result<Child> {
+    pub fn run(name: String, config: ServicesConfiguration) -> Result<(Service, Child)> {
         // check current state
         if let Some(s) = config.service_states.get(&name) {
             // make sure service isn't already running
@@ -76,6 +102,7 @@ impl Service {
         };
 
         // create command
+        println!("info: cmd: {}", service.command);
         let command_split: Vec<&str> = service.command.split(" ").collect();
         let mut cmd = Command::new(command_split.get(0).unwrap());
 
@@ -89,10 +116,10 @@ impl Service {
             }
         }
 
-        cmd.current_dir(service.working_directory.clone());
+        cmd.current_dir(&service.working_directory);
 
         // spawn
-        Ok(cmd.spawn()?)
+        Ok((service.to_owned(), cmd.spawn()?))
     }
 
     /// Kill service process
@@ -247,7 +274,7 @@ impl Service {
         // update config
         config
             .service_states
-            .insert(name.to_string(), (ServiceState::Running, process.id()));
+            .insert(name.to_string(), (ServiceState::Running, process.1.id()));
 
         ServicesConfiguration::update_config(config.clone()).expect("Failed to update config");
         Service::observe(name.clone(), config.service_states.clone())
@@ -298,6 +325,63 @@ impl Service {
         // return
         Ok(())
     }
+
+    // package manager
+
+    /// Run and init a [`Service`]'s [`BuildConfiguration`]
+    pub async fn bootstrap(&self, name: String) -> Result<()> {
+        let home = env::var("HOME").expect("failed to read $HOME");
+
+        // verify modules directory
+        if let Err(_) = fs::read_dir(format!("{home}/.config/sproc/modules")) {
+            if let Err(e) = fs::create_dir(format!("{home}/.config/sproc/modules")) {
+                panic!("{:?}", e);
+            }
+        }
+
+        // check for existing directory
+        let dir = format!("{home}/.config/sproc/modules/{}", name);
+
+        if let Ok(_) = fs::read_dir(&dir) {
+            return Err(Error::new(ErrorKind::AlreadyExists, "The requested service has already run its build commands or its build directory already exists."));
+        }
+
+        // create directory
+        fs::create_dir(&dir)?;
+
+        // create build file
+        // TODO: make this work on other platforms
+        let build_file = format!("{dir}/build.artifact.sh");
+        fs::write(&build_file, self.metadata.build.join("\n"))?;
+
+        // run build file
+        let command = format!("bash {build_file}");
+        let command_split: Vec<&str> = command.split(" ").collect();
+        let mut cmd = Command::new(command_split.get(0).unwrap());
+
+        for arg in command_split.iter().skip(1) {
+            cmd.arg(arg);
+        }
+
+        cmd.current_dir(&dir);
+
+        // capture out
+        let child_stdout = cmd
+            .stdout(Stdio::piped())
+            .spawn()?
+            .stdout
+            .expect("failed to capture command output");
+
+        let reader = BufReader::new(child_stdout);
+
+        reader
+            .lines()
+            .filter_map(|l| l.ok())
+            .for_each(|l| println!("build: {l}"));
+
+        // return
+        Ok(())
+    }
 }
 
 /// The state of a [`Service`]
@@ -332,6 +416,13 @@ pub struct RegistryConfiguration {
     /// Registry description, shown on the homepage
     #[serde(default)]
     pub description: String,
+    /// Registry name, shown on homepage
+    #[serde(default = "registry_default")]
+    pub name: String,
+}
+
+fn registry_default() -> String {
+    "Registry".to_owned()
 }
 
 impl Default for RegistryConfiguration {
@@ -339,6 +430,7 @@ impl Default for RegistryConfiguration {
         Self {
             enabled: true,
             description: String::new(),
+            name: registry_default(),
         }
     }
 }

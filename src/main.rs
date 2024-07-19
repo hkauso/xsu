@@ -1,5 +1,4 @@
 //! Sproc process manager
-
 use clap::{Parser, Subcommand};
 use server::APIReturn;
 use std::{
@@ -57,7 +56,7 @@ enum Commands {
 pub mod model;
 pub mod server;
 
-use model::{Service, ServiceState, ServicesConfiguration};
+use model::{Service, ServiceState, ServiceType, ServicesConfiguration};
 
 // real main
 async fn sproc<'a>() -> Result<&'a str> {
@@ -109,11 +108,18 @@ async fn sproc<'a>() -> Result<&'a str> {
             for name in names {
                 match services.services.get(name) {
                     Some(_) => {
-                        let process = Service::run(name.to_string(), services.clone())?;
+                        let mut process = Service::run(name.to_string(), services.clone())?;
 
+                        // if this is an application, wait for it to close and then continue
+                        if process.0.r#type == ServiceType::Application {
+                            process.1.wait()?;
+                            continue; // we must continue so we don't try to add the service pid
+                        }
+
+                        // ...
                         services
                             .service_states
-                            .insert(name.to_string(), (ServiceState::Running, process.id()));
+                            .insert(name.to_string(), (ServiceState::Running, process.1.id()));
                     }
                     None => return Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
                 }
@@ -165,11 +171,19 @@ async fn sproc<'a>() -> Result<&'a str> {
         // runall
         Commands::RunAll {} => {
             for service in &services.services {
-                let process = Service::run(service.0.to_string(), services.clone())?;
+                let mut process = Service::run(service.0.to_string(), services.clone())?;
 
-                services
-                    .service_states
-                    .insert(service.0.to_string(), (ServiceState::Running, process.id()));
+                // if this is an application, immediately exit
+                if process.0.r#type == ServiceType::Application {
+                    process.1.kill()?;
+                    continue;
+                }
+
+                // ...
+                services.service_states.insert(
+                    service.0.to_string(),
+                    (ServiceState::Running, process.1.id()),
+                );
             }
 
             ServicesConfiguration::update_config(services)?;
@@ -324,7 +338,18 @@ async fn sproc<'a>() -> Result<&'a str> {
                             }
                         };
 
-                        service.working_directory = service.working_directory.replace("~", &home); // make relative home exact
+                        // run build
+                        service.bootstrap(name.to_owned()).await?;
+
+                        // make relative home exact
+                        service.working_directory = service.working_directory.replace("~", &home);
+
+                        // make build dir exact
+                        service.working_directory = service
+                            .working_directory
+                            .replace("@", &format!("{home}/.config/sproc/modules/{name}"));
+
+                        // push service
                         services.services.insert(name.to_owned(), service);
 
                         // log
@@ -350,6 +375,12 @@ async fn sproc<'a>() -> Result<&'a str> {
                 if services.service_states.contains_key(name) {
                     // kill service if it's running
                     Service::kill(name.to_owned(), services.clone())?;
+                }
+
+                // remove directory
+                let home = std::env::var("HOME").expect("failed to read $HOME");
+                if let Ok(_) = fs::read_dir(format!("{home}/.config/sproc/modules/{name}")) {
+                    fs::remove_dir_all(format!("{home}/.config/sproc/modules/{name}"))?
                 }
 
                 // remove service
