@@ -8,9 +8,6 @@ endblock %} {% block content %}
         <div class="item">
             <a href="/registry/{{ package.0 }}">View</a>
         </div>
-        <div class="item">
-            <a href="/registry/{{ package.0 }}/edit">Edit</a>
-        </div>
     </div>
 
     <h2>{{ fake_name }}</h2>
@@ -41,7 +38,7 @@ endblock %} {% block content %}
         <fieldset>
             <legend>Actions</legend>
 
-            <div style="display: flex; gap: 0.2rem">
+            <div class="flex gap-1">
                 <button>Submit</button>
                 <button type="button" id="delete_button">Delete</button>
             </div>

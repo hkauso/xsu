@@ -1,21 +1,20 @@
 {% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
 block content %}
 <article>
-    <p>
-        Please select a valid page to continue. You may also need to
-        authenticate before some pages can be loaded (🔐).
-    </p>
+    {{ xsu_util::ui::render_markdown(config.description)|safe }}
+    <hr />
+
+    <p>Please select a valid page to continue.</p>
 
     <ul>
         <li><a href="/registry">🌐 Service list</a></li>
         <li><a href="/book">🌐 Book</a></li>
-        <li><a href="/">🔐 Manage server</a></li>
     </ul>
 
     <hr />
     <form action="" method="POST">
         <fieldset>
-            <legend>Authenticate</legend>
+            <legend>Enter Admin Mode</legend>
 
             <div class="row">
                 <label for="key">Key</label>

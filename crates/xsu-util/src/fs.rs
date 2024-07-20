@@ -5,10 +5,21 @@ use std::path::Path;
 pub use std::{
     fs::{
         create_dir, read_dir, read_to_string, remove_dir_all, remove_file, write as std_write,
-        canonicalize,
+        canonicalize, metadata, Metadata,
     },
     io::Result,
 };
+
+/// Get a path's metadata
+///
+/// ## Arguments:
+/// * `path`
+pub fn fstat<P>(path: P) -> Result<Metadata>
+where
+    P: AsRef<Path>,
+{
+    metadata(path)
+}
 
 /// Create a directory if it does not already exist
 ///

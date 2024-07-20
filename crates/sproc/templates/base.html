@@ -17,11 +17,28 @@
                 box-sizing: border-box;
                 padding: 0;
                 margin: 0;
+                min-width: 0;
+            }
+
+            :root {
+                color-scheme: light dark;
+                --color-surface: hsl(0, 0%, 100%);
+                --color-lowered: hsl(0, 0%, 95%);
+                --color-raised: hsl(0, 0%, 95%);
+                --color-super-lowered: hsl(0, 0%, 90%);
+                --color-super-raised: hsl(0, 0%, 90%);
+                --color-text: hsl(0, 0%, 0%);
+                --radius: 0.125rem;
             }
 
             html,
             body {
                 line-height: 1.5;
+                font-family: ui-sans-serif, system-ui, sans-serif,
+                    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+                    "Noto Color Emoji";
+                color: var(--color-text);
+                background: var(--color-surface);
             }
 
             main {
@@ -51,6 +68,7 @@
             hr {
                 margin-top: 1rem;
                 margin-bottom: 1rem;
+                border-color: var(--color-lowered);
             }
 
             p,
@@ -87,10 +105,10 @@
 
             pre {
                 padding: 0.5rem;
-                border: solid 1px gray;
+                border: solid 1px var(--color-lowered);
+                background: var(--color-surface);
                 overflow: auto;
                 max-width: 100%;
-                background: white;
             }
 
             p,
@@ -104,11 +122,62 @@
                 overflow-wrap: anywhere;
             }
 
+            button,
+            a.button {
+                background: var(--color-lowered);
+                padding: 0.25rem 0.75rem;
+                min-height: 32px;
+                border: 0;
+                outline: none;
+                cursor: pointer;
+                border-radius: var(--radius);
+                transition: background 0.15s;
+            }
+
+            button:hover,
+            a.button:hover {
+                background: var(--color-super-lowered);
+            }
+
             textarea {
                 width: 100%;
                 resize: vertical;
                 min-height: 10rem;
                 font-family: monospace;
+                padding: 0.75rem;
+            }
+
+            input,
+            select {
+                padding: 0.25rem 0.75rem;
+                height: 32px;
+            }
+
+            input,
+            textarea,
+            select {
+                background: var(--color-lowered);
+                border: 0;
+                outline: solid 1px transparent;
+                border-radius: var(--radius);
+                transition:
+                    background 0.15s,
+                    outline 0.08s,
+                    outline-color 0.15s;
+            }
+
+            input:focus,
+            textarea:focus,
+            select:focus {
+                outline: solid 2px var(--color-super-lowered);
+                outline-offset: 2px;
+            }
+
+            input:invalid,
+            textarea:invalid,
+            select:invalid {
+                outline: solid 2px #ef4444;
+                outline-offset: 2px;
             }
 
             form,
@@ -116,7 +185,14 @@
                 display: flex;
                 flex-direction: column;
                 gap: 0.2rem;
-                padding: 0.2rem;
+                max-width: 100%;
+                border-color: var(--color-lowered);
+                transition: border-color 0.15s;
+            }
+
+            fieldset {
+                padding: 0.5rem;
+                border-radius: calc(var(--radius) * 2);
             }
 
             fieldset .row {
@@ -126,7 +202,13 @@
             }
 
             fieldset:hover {
-                background: rgba(0, 0, 0, 0.1);
+                border-color: var(--color-super-lowered);
+            }
+
+            .card {
+                background: var(--color-lowered);
+                border-radius: calc(var(--radius) * 2);
+                padding: 0.75rem;
             }
 
             legend,
@@ -194,19 +276,122 @@
             h6 {
                 font-size: 0.75rem;
             }
+
+            a {
+                text-decoration: none;
+                color: #2949b2;
+            }
+
+            a:hover {
+                text-decoration: underline;
+            }
+
+            nav {
+                background: var(--color-raised);
+                border-bottom: solid 2px var(--color-super-raised);
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                color: var(--color-text);
+                padding: 0.25rem;
+                margin-bottom: 0.2rem;
+            }
+
+            nav span,
+            nav button,
+            nav a.button {
+                border-radius: var(--radius);
+                color: inherit;
+                text-decoration: none;
+                min-height: max-content;
+                height: max-content;
+                background: inherit;
+                outline: solid 1px transparent;
+                padding: 0rem 0.5rem;
+                transition:
+                    background 0.15s,
+                    outline 0.08s;
+            }
+
+            nav button:hover,
+            nav a.button:hover {
+                background: var(--color-raised);
+                outline: solid 2px var(--color-super-lowered);
+                outline-offset: 2px;
+            }
+
+            nav button.secondary,
+            nav a.button.secondary {
+                background: var(--color-lowered);
+            }
+
+            nav button.secondary:hover,
+            nav a.button.secondary:hover {
+                background: var(--color-super-lowered);
+            }
+
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --color-surface: hsl(0, 0%, 10%);
+                    --color-lowered: hsl(0, 0%, 20%);
+                    --color-raised: hsl(0, 0%, 8%);
+                    --color-super-lowered: hsl(0, 0%, 25%);
+                    --color-super-raised: hsl(0, 0%, 6%);
+                    --color-text: hsl(0, 0%, 95%);
+                }
+
+                a {
+                    color: #93c5fd;
+                }
+            }
+
+            /* utility */
+            .flex {
+                display: flex;
+            }
+
+            .flex-col {
+                flex-direction: column;
+            }
+
+            .justify-center {
+                justify-content: center;
+            }
+
+            .items-center {
+                align-items: center;
+            }
+
+            .gap-1 {
+                gap: 0.25rem;
+            }
+
+            .gap-2 {
+                gap: 0.5rem;
+            }
         </style>
     </head>
 
     <body>
-        <main>
-            <h1 class="left">{{ config.name }}</h1>
-            {{ xsu_util::ui::render_markdown(config.description)|safe }}
-            <hr />
+        <nav>
+            <a class="button" href="/">
+                <b>{{ config.name }}</b>
+            </a>
 
+            <div class="flex gap-1">
+                {% for button in config.nav %}
+                <a class="button secondary" href="{{ button.1 }}">
+                    {{ button.0 }}
+                </a>
+                {% endfor %}
+            </div>
+        </nav>
+
+        <main>
             {% block content %}{% endblock %}
 
             <hr />
-            <div class="footernav">
+            <div class="footernav justify-center" style="width: 100%">
                 <div class="item">
                     <a href="/">🌐 Home</a>
                 </div>

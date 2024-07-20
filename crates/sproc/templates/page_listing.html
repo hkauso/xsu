@@ -1,9 +1,9 @@
-{% extends "base.html" %} {% block title %}{{ book }} - {{ config.name }}{%
+{% extends "base.html" %} {% block title %}{{ path }} - {{ config.name }}{%
 endblock %} {% block content %}
 <article>
     <div class="footernav">
         <div class="item">
-            <a href="/book">&lt; Back</a>
+            <div class="item"><a href="/book">&lt; Root</a></div>
         </div>
 
         <div class="item">
@@ -12,7 +12,7 @@ endblock %} {% block content %}
         </div>
 
         <div class="item">
-            <a href="/book/@/new">New</a>
+            <a href="/book_admin/new">New</a>
         </div>
     </div>
 
@@ -20,8 +20,13 @@ endblock %} {% block content %}
         {% for page in pages %}
         <!-- prettier-ignore -->
         <li>
-            <a href="/book/{{ book }}/{{ page }}">{{ page }}</a>
-            (<a href="/book/{{ book }}/{{ page }}" target="_blank" title="Open in new window">+</a>)
+            {% if path.is_empty() %}
+                <a href="/book/{{ page }}">{{ page }}</a>
+                (<a href="/book/{{ page }}" target="_blank" title="Open in new window">+</a>)
+            {% else %}
+                <a href="/book/{{ path }}/{{ page }}">{{ page }}</a>
+                (<a href="/book/{{ path }}/{{ page }}" target="_blank" title="Open in new window">+</a>)
+            {% endif %}
         </li>
         {% endfor %}
     </ul>
