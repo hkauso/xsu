@@ -125,13 +125,17 @@
             button,
             a.button {
                 background: var(--color-lowered);
+                color: var(--color-text);
                 padding: 0.25rem 0.75rem;
                 min-height: 32px;
+                min-width: max-content;
+                width: max-content;
                 border: 0;
                 outline: none;
                 cursor: pointer;
                 border-radius: var(--radius);
                 transition: background 0.15s;
+                user-select: none;
             }
 
             button:hover,
@@ -198,11 +202,23 @@
             fieldset .row {
                 display: flex;
                 justify-content: space-between;
+                align-items: center;
                 flex-wrap: wrap;
             }
 
             fieldset:hover {
                 border-color: var(--color-super-lowered);
+            }
+
+            .flex-collapse {
+                display: flex;
+                gap: 0.5rem;
+            }
+
+            @media screen and (max-width: 900px) {
+                .flex-collapse {
+                    flex-direction: column;
+                }
             }
 
             .card {

@@ -4,7 +4,9 @@ use axum::extract::{Form, Path};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get};
 use axum::{extract::State, response::Html, routing::post, Json, Router};
+use axum_extra::extract::CookieJar;
 use std::process::Command;
+use xsu_authman::{Database, api, model::Profile};
 
 use crate::model::{
     Registry, RegistryConfiguration, RegistryDeleteRequestBody, RegistryPushRequestBody, Service,
@@ -280,12 +282,28 @@ struct CustomTemplate {
     content: String,
 }
 
+#[derive(Template)]
+#[template(path = "auth.html")]
+struct AuthTemplate {
+    config: RegistryConfiguration,
+}
+
+#[derive(Template)]
+#[template(path = "myaccount.html")]
+struct MyAccountTemplate {
+    config: RegistryConfiguration,
+    me: Profile,
+}
+
 #[derive(Deserialize)]
 pub struct IndexBody {
     key: String,
 }
 
-pub async fn registry_index_request(State(registry): State<Registry>) -> impl IntoResponse {
+/// GET /
+pub async fn registry_index_request(
+    State((registry, _)): State<(Registry, Database)>,
+) -> impl IntoResponse {
     Html(
         HomepageTemplate {
             config: registry.0.registry,
@@ -298,7 +316,7 @@ pub async fn registry_index_request(State(registry): State<Registry>) -> impl In
 /// GET /registry/:name
 pub async fn registry_service_view_request(
     Path(service): Path<String>,
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     Html(
         ViewTemplate {
@@ -316,7 +334,7 @@ pub async fn registry_service_view_request(
 /// GET /registry/:name/edit
 pub async fn registry_service_edit_request(
     Path(service): Path<String>,
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     Html(
         EditTemplate {
@@ -333,7 +351,7 @@ pub async fn registry_service_edit_request(
 
 /// GET /registry/new
 pub async fn registry_service_create_request(
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     Html(
         CreateTemplate {
@@ -345,7 +363,9 @@ pub async fn registry_service_create_request(
 }
 
 /// GET /registry
-pub async fn registry_listing_request(State(registry): State<Registry>) -> impl IntoResponse {
+pub async fn registry_listing_request(
+    State((registry, _)): State<(Registry, Database)>,
+) -> impl IntoResponse {
     // get services
     let mut packages = Vec::new();
 
@@ -371,7 +391,7 @@ pub async fn registry_listing_request(State(registry): State<Registry>) -> impl 
 /// GET /book/:path
 pub async fn registry_book_page_view_request(
     Path(path): Path<String>,
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     // if this path links to a directory, show listing
     let metadata = match registry.get_page_metadata(&path) {
@@ -418,7 +438,9 @@ pub async fn registry_book_page_view_request(
 }
 
 /// GET /book
-pub async fn registry_base_listing_request(State(registry): State<Registry>) -> impl IntoResponse {
+pub async fn registry_base_listing_request(
+    State((registry, _)): State<(Registry, Database)>,
+) -> impl IntoResponse {
     // get pages
     let mut pages = Vec::new();
 
@@ -445,7 +467,7 @@ pub async fn registry_base_listing_request(State(registry): State<Registry>) -> 
 /// GET /book_admin/edit/:path
 pub async fn registry_book_page_edit_request(
     Path(path): Path<String>,
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     Html(
         EditPageTemplate {
@@ -462,7 +484,7 @@ pub async fn registry_book_page_edit_request(
 
 /// GET /book_admin/new
 pub async fn registry_book_page_create_request(
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     Html(
         PageCreateTemplate {
@@ -475,7 +497,7 @@ pub async fn registry_book_page_create_request(
 
 /// POST /
 pub async fn registry_manage_server_request(
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
     Form(body): Form<IndexBody>,
 ) -> impl IntoResponse {
     // check key
@@ -512,7 +534,7 @@ pub async fn registry_manage_server_request(
 /// Used for custom app pages for services.
 pub async fn registry_custom_request(
     Path(path): Path<String>,
-    State(registry): State<Registry>,
+    State((registry, _)): State<(Registry, Database)>,
 ) -> impl IntoResponse {
     Html(
         CustomTemplate {
@@ -521,6 +543,41 @@ pub async fn registry_custom_request(
                 Ok(p) => p,
                 Err(e) => return Html(e.to_string()),
             },
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+/// GET /account
+pub async fn registry_auth_request(
+    jar: CookieJar,
+    State((registry, database)): State<(Registry, Database)>,
+) -> impl IntoResponse {
+    // my account
+    if let Some(cookie) = jar.get("__Secure-Token") {
+        match database
+            .get_profile_by_unhashed(cookie.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => {
+                return Html(
+                    MyAccountTemplate {
+                        config: registry.0.registry.clone(),
+                        me: ua,
+                    }
+                    .render()
+                    .unwrap(),
+                )
+            }
+            Err(e) => return Html(e.to_string()),
+        }
+    };
+
+    // default
+    Html(
+        AuthTemplate {
+            config: registry.0.registry.clone(),
         }
         .render()
         .unwrap(),
@@ -678,10 +735,11 @@ pub fn registry_api(config: ServConf) -> Router {
 }
 
 /// Public registry page routes
-pub fn registry_public(config: ServConf) -> Router {
+pub fn registry_public(config: ServConf, database: Database) -> Router {
     Router::new()
         .route("/", get(registry_index_request))
         .route("/", post(registry_manage_server_request))
+        .route("/account", get(registry_auth_request))
         .route("/custom/*path", get(registry_custom_request))
         // registry
         .route("/registry", get(registry_listing_request))
@@ -700,11 +758,20 @@ pub fn registry_public(config: ServConf) -> Router {
         .route("/book", get(registry_base_listing_request))
         .route("/book/*path", get(registry_book_page_view_request))
         // ...
-        .with_state(Registry::new(config.server))
+        .with_state((Registry::new(config.server), database))
 }
 
 /// Main server process
 pub async fn server(config: ServConf) {
+    // create database
+    let database = Database::new(
+        Database::env_options(),
+        xsu_authman::ServerOptions::truthy(),
+    )
+    .await;
+    database.init().await;
+
+    // create app
     let app = Router::new()
         .route("/start", post(observe_request))
         .route("/kill", post(kill_request))
@@ -712,7 +779,8 @@ pub async fn server(config: ServConf) {
         .route("/install", post(install_request))
         .route("/uninstall", post(uninstall_request))
         .nest_service("/api/registry", registry_api(config.clone()))
-        .nest_service("/", registry_public(config.clone()))
+        .nest_service("/api/auth", api::routes(database.clone()))
+        .nest_service("/", registry_public(config.clone(), database.clone()))
         .fallback(not_found)
         .with_state(config.clone());
 

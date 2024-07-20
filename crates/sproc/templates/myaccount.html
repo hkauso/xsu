@@ -1,0 +1,32 @@
+{% extends "base.html" %} {% block title %}My Account - {{ config.name }}{%
+endblock %} {% block content %}
+<article>
+    <fieldset id="info">
+        <legend>{{ me.username }}</legend>
+
+        <ul>
+            <li>
+                <b>joined:</b>
+                <code>{{ me.joined }}</code>
+            </li>
+            <li>
+                <b>group id:</b>
+                <code>{{ me.group }}</code>
+            </li>
+        </ul>
+
+        <fieldset id="metadata">
+            <legend>Metadata</legend>
+            <!-- TODO: all metadata options + user about -->
+        </fieldset>
+    </fieldset>
+
+    <fieldset id="actions">
+        <legend>Actions</legend>
+
+        <div class="flex gap-1">
+            <a href="/api/auth/logout" class="button">Logout</a>
+        </div>
+    </fieldset>
+</article>
+{% call super() %} {% endblock %}

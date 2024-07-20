@@ -4,5 +4,6 @@ members = [
     "crates/sproc",
     "crates/xsu-util",
     "crates/xsu-appman", 
-    "crates/xsu-open"
+    "crates/xsu-open",
+    "crates/xsu-authman"
 ]

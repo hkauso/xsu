@@ -1,0 +1,130 @@
+{% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
+block content %}
+<article>
+    <fieldset class="flex-collapse">
+        <legend>My Account</legend>
+
+        <div
+            id="success"
+            class="flex flex-col gap-2"
+            style="display: none; width: 100%"
+        ></div>
+        <div id="error" class="card" style="display: none; width: 100%"></div>
+
+        <div class="flex-collapse" id="forms">
+            <fieldset style="width: 100%">
+                <legend>Login</legend>
+
+                <form id="login_form">
+                    <div class="row">
+                        <label for="uid">Account ID</label>
+                        <input
+                            type="text"
+                            name="uid"
+                            id="uid"
+                            placeholder="00000000-0000-0000-0000-000000000000"
+                            required
+                            minlength="36"
+                            maxlength="36"
+                        />
+                    </div>
+
+                    <hr />
+                    <button>Login</button>
+                </form>
+            </fieldset>
+
+            <fieldset style="width: 100%">
+                <legend>Register</legend>
+
+                <form id="register_form">
+                    <div class="row">
+                        <label for="username">Username</label>
+                        <input
+                            type="text"
+                            name="username"
+                            id="username"
+                            placeholder="my-unique-username"
+                            required
+                            minlength="4"
+                            maxlength="32"
+                        />
+                    </div>
+
+                    <hr />
+                    <button>Register</button>
+                </form>
+            </fieldset>
+        </div>
+    </fieldset>
+
+    <script>
+        const error = document.getElementById("error");
+        const success = document.getElementById("success");
+        const forms = document.getElementById("forms");
+        const callback = "/api/auth/callback";
+
+        document
+            .getElementById("login_form")
+            .addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const res = await fetch("/api/auth/login", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        id: e.target.uid.value,
+                    }),
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                const json = await res.json();
+
+                if (json.success === false) {
+                    error.style.display = "block";
+                    error.innerHTML = `<div class="mdnote-title">${json.message}</div>`;
+                } else {
+                    success.style.display = "flex";
+                    success.innerHTML = `<p>Successfully logged into account.</p>
+                
+                    <hr />
+                    <a href="${callback}?uid=${json.message}" class="button">Continue</a>`;
+                    forms.style.display = "none";
+                }
+            });
+
+        document
+            .getElementById("register_form")
+            .addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const res = await fetch("/api/auth/register", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        username: e.target.username.value,
+                    }),
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                const json = await res.json();
+
+                if (json.success === false) {
+                    error.style.display = "block";
+                    error.innerHTML = `<div class="mdnote-title">${json.message}</div>`;
+                } else {
+                    success.style.display = "flex";
+                    success.innerHTML = `<p>Account created! You can login using this code:</p>
+
+                    <p class="card secondary round flex justify-center align-center">${json.message}</p>
+
+                    <p><b>Do not lose it!</b> This code is required for you to sign into your account, <b>it cannot be reset!</b></p>
+                    
+                    <hr />
+                    <a href="${callback}?uid=${json.message}" class="button">Continue</a>`;
+                    forms.style.display = "none";
+                }
+            });
+    </script>
+</article>
+{% call super() %} {% endblock %}

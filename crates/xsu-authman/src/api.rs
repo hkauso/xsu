@@ -1,0 +1,358 @@
+//! Responds to API requests
+use crate::database::Database;
+use crate::model::{AuthError, Permission, ProfileCreate, ProfileLogin, SetProfileGroup};
+use axum::http::HeaderMap;
+use dorsal::DefaultReturn;
+
+use axum::response::IntoResponse;
+use axum::{
+    extract::{Path, Query, State},
+    routing::{get, post},
+    Json, Router,
+};
+use axum_extra::extract::cookie::CookieJar;
+
+pub fn routes(database: Database) -> Router {
+    Router::new()
+        // profiles
+        .route("/profile/:username/group", post(set_group_request))
+        .route("/profile/:username", get(profile_inspect_request))
+        // me
+        .route("/me", get(me_request))
+        // account
+        .route("/register", post(create_profile_request))
+        .route("/login", post(login_request))
+        .route("/callback", get(callback_request))
+        .route("/logout", get(logout_request))
+        // ...
+        .with_state(database)
+}
+
+/// [`Database::create_profile`]
+pub async fn create_profile_request(
+    jar: CookieJar,
+    State(database): State<Database>,
+    Json(props): Json<ProfileCreate>,
+) -> impl IntoResponse {
+    if let Some(_) = jar.get("__Secure-Token") {
+        return (
+            HeaderMap::new(),
+            serde_json::to_string(&DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            })
+            .unwrap(),
+        );
+    }
+
+    let res = match database.create_profile(props.username).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                HeaderMap::new(),
+                serde_json::to_string(&DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                })
+                .unwrap(),
+            );
+        }
+    };
+
+    // return
+    let mut headers = HeaderMap::new();
+
+    headers.insert(
+        "Set-Cookie",
+        format!(
+            "__Secure-Token={}; SameSite=Lax; Secure; Path=/; HostOnly=true; HttpOnly=true; Max-Age={}",
+            res,
+            60* 60 * 24 * 365
+        )
+        .parse()
+        .unwrap(),
+    );
+
+    (
+        headers,
+        serde_json::to_string(&DefaultReturn {
+            success: true,
+            message: res.clone(),
+            payload: (),
+        })
+        .unwrap(),
+    )
+}
+
+/// [`Database::get_profile_by_unhashed_st`]
+pub async fn login_request(
+    State(database): State<Database>,
+    Json(props): Json<ProfileLogin>,
+) -> impl IntoResponse {
+    if let Err(e) = database.get_profile_by_unhashed(props.id.clone()).await {
+        return (
+            HeaderMap::new(),
+            serde_json::to_string(&DefaultReturn {
+                success: false,
+                message: e.to_string(),
+                payload: (),
+            })
+            .unwrap(),
+        );
+    };
+
+    // return
+    let mut headers = HeaderMap::new();
+
+    headers.insert(
+        "Set-Cookie",
+        format!(
+            "__Secure-Token={}; SameSite=Lax; Secure; Path=/; HostOnly=true; HttpOnly=true; Max-Age={}",
+            props.id,
+            60* 60 * 24 * 365
+        )
+        .parse()
+        .unwrap(),
+    );
+
+    (
+        headers,
+        serde_json::to_string(&DefaultReturn {
+            success: true,
+            message: props.id,
+            payload: (),
+        })
+        .unwrap(),
+    )
+}
+
+/// Returns the current user's username
+pub async fn me_request(jar: CookieJar, State(database): State<Database>) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                });
+            }
+        },
+        None => {
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+    };
+
+    // return
+    Json(DefaultReturn {
+        success: true,
+        message: auth_user.username,
+        payload: (),
+    })
+}
+
+/// View a profile's information
+pub async fn profile_inspect_request(
+    Path(username): Path<String>,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    // get user
+    let mut auth_user = match database.get_profile_by_username(username).await {
+        Ok(ua) => ua,
+        Err(e) => {
+            return Json(DefaultReturn {
+                success: false,
+                message: e.to_string(),
+                payload: None,
+            });
+        }
+    };
+
+    // edit profile
+    auth_user.id = String::new();
+    auth_user.metadata.secondary_token = String::new();
+
+    // return
+    Json(DefaultReturn {
+        success: true,
+        message: auth_user.username.to_string(),
+        payload: Some(auth_user),
+    })
+}
+
+/// Change a profile's group
+pub async fn set_group_request(
+    jar: CookieJar,
+    Path(username): Path<String>,
+    State(database): State<Database>,
+    Json(props): Json<SetProfileGroup>,
+) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: None,
+                });
+            }
+        },
+        None => {
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: None,
+            });
+        }
+    };
+
+    // check permission
+    let group = match database.get_group_by_id(auth_user.group).await {
+        Ok(g) => g,
+        Err(e) => {
+            return Json(DefaultReturn {
+                success: false,
+                message: e.to_string(),
+                payload: None,
+            })
+        }
+    };
+
+    if !group.permissions.contains(&Permission::Manager) {
+        // we must have the "Manager" permission to edit other users
+        return Json(DefaultReturn {
+            success: false,
+            message: AuthError::NotAllowed.to_string(),
+            payload: None,
+        });
+    }
+
+    // get other user
+    let other_user = match database.get_profile_by_username(username.clone()).await {
+        Ok(ua) => ua,
+        Err(e) => {
+            return Json(DefaultReturn {
+                success: false,
+                message: e.to_string(),
+                payload: None,
+            });
+        }
+    };
+
+    // check permission
+    let group = match database.get_group_by_id(other_user.group).await {
+        Ok(g) => g,
+        Err(e) => {
+            return Json(DefaultReturn {
+                success: false,
+                message: e.to_string(),
+                payload: None,
+            })
+        }
+    };
+
+    if group.permissions.contains(&Permission::Manager) {
+        // we cannot manager other managers
+        return Json(DefaultReturn {
+            success: false,
+            message: AuthError::NotAllowed.to_string(),
+            payload: None,
+        });
+    }
+
+    // push update
+    // TODO: try not to clone
+    if let Err(e) = database
+        .edit_profile_group_by_name(username, props.group)
+        .await
+    {
+        return Json(DefaultReturn {
+            success: false,
+            message: e.to_string(),
+            payload: None,
+        });
+    }
+
+    // return
+    Json(DefaultReturn {
+        success: true,
+        message: "Acceptable".to_string(),
+        payload: Some(props.group),
+    })
+}
+
+// general
+pub async fn not_found() -> impl IntoResponse {
+    Json(DefaultReturn::<u16> {
+        success: false,
+        message: String::from("Path does not exist"),
+        payload: 404,
+    })
+}
+
+// auth
+#[derive(serde::Deserialize)]
+pub struct CallbackQueryProps {
+    pub uid: String, // this uid will need to be sent to the client as a token
+}
+
+pub async fn callback_request(Query(params): Query<CallbackQueryProps>) -> impl IntoResponse {
+    // return
+    (
+        [
+            ("Content-Type".to_string(), "text/html".to_string()),
+            (
+                "Set-Cookie".to_string(),
+                format!(
+                    "__Secure-Token={}; SameSite=Lax; Secure; Path=/; HostOnly=true; HttpOnly=true; Max-Age={}",
+                    params.uid,
+                    60 * 60 * 24 * 365
+                ),
+            ),
+        ],
+        "<head>
+            <meta http-equiv=\"Refresh\" content=\"0; URL=/\" />
+        </head>"
+    )
+}
+
+pub async fn logout_request(jar: CookieJar) -> impl IntoResponse {
+    // check for cookie
+    if let Some(_) = jar.get("__Secure-Token") {
+        return (
+            [
+                ("Content-Type".to_string(), "text/plain".to_string()),
+                (
+                    "Set-Cookie".to_string(),
+                   "__Secure-Token=refresh; SameSite=Strict; Secure; Path=/; HostOnly=true; HttpOnly=true; Max-Age=0".to_string(),
+                ),
+            ],
+            "You have been signed out. You can now close this tab.",
+        );
+    }
+
+    // return
+    (
+        [
+            ("Content-Type".to_string(), "text/plain".to_string()),
+            ("Set-Cookie".to_string(), String::new()),
+        ],
+        "Failed to sign out of account.",
+    )
+}
