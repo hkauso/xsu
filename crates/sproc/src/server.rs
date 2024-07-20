@@ -245,6 +245,33 @@ struct ManageTemplate {
     key: String,
 }
 
+#[derive(Template)]
+#[template(path = "page.html")]
+struct PageTemplate {
+    config: RegistryConfiguration,
+    page: (String, String),
+}
+
+#[derive(Template)]
+#[template(path = "edit_page.html")]
+struct EditPageTemplate {
+    config: RegistryConfiguration,
+    page: (String, String),
+}
+
+#[derive(Template)]
+#[template(path = "create_page.html")]
+struct PageCreateTemplate {
+    config: RegistryConfiguration,
+}
+
+#[derive(Template)]
+#[template(path = "book_listing.html")]
+struct BookListingTemplate {
+    config: RegistryConfiguration,
+    pages: Vec<String>,
+}
+
 /// A sub-action on the [`IndexTemplate`]
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub enum IndexSubAction {
@@ -258,6 +285,10 @@ pub enum IndexSubAction {
     Create,
     /// Manage running services
     Manage,
+    /// Edit book page
+    Author,
+    /// Book page listing
+    Book,
 }
 
 impl Default for IndexSubAction {
@@ -268,8 +299,13 @@ impl Default for IndexSubAction {
 
 #[derive(Deserialize)]
 pub struct IndexQuery {
+    /// Service path
     #[serde(default)]
     read: String,
+    /// Book page path
+    #[serde(default)]
+    page: String,
+    /// Sub-action
     #[serde(default)]
     action: IndexSubAction,
 }
@@ -348,11 +384,75 @@ pub async fn registry_index_request(
         );
     }
 
+    // view book page
+    if !props.page.is_empty() {
+        // edit
+        if props.action == IndexSubAction::Author {
+            return Html(
+                EditPageTemplate {
+                    config: registry.0.registry.clone(),
+                    page: match registry.get_page(props.page.clone().replace(".md", "")) {
+                        Ok(p) => (props.page, p),
+                        Err(e) => return Html(e.to_string()),
+                    },
+                }
+                .render()
+                .unwrap(),
+            );
+        }
+
+        // view
+        return Html(
+            PageTemplate {
+                config: registry.0.registry.clone(),
+                page: match registry.get_page(props.page.clone().replace(".md", "")) {
+                    Ok(p) => (props.page, p),
+                    Err(e) => return Html(e.to_string()),
+                },
+            }
+            .render()
+            .unwrap(),
+        );
+    }
+
     // create
     if props.action == IndexSubAction::Create {
         return Html(
             CreateTemplate {
                 config: registry.0.registry.clone(),
+            }
+            .render()
+            .unwrap(),
+        );
+    }
+    // book create
+    if props.action == IndexSubAction::Author {
+        return Html(
+            PageCreateTemplate {
+                config: registry.0.registry.clone(),
+            }
+            .render()
+            .unwrap(),
+        );
+    }
+    // book
+    else if props.action == IndexSubAction::Book {
+        // get pages
+        let mut pages = Vec::new();
+
+        for page in match std::fs::read_dir(registry.2) {
+            Ok(ls) => ls,
+            Err(e) => return Html(e.to_string()),
+        } {
+            // what in the world
+            pages.push(page.unwrap().file_name().to_string_lossy().to_string());
+        }
+
+        // return
+        return Html(
+            BookListingTemplate {
+                config: registry.0.registry,
+                pages,
             }
             .render()
             .unwrap(),
@@ -451,6 +551,65 @@ pub async fn registry_delete_request(
     })
 }
 
+/// [`Registry::get_page`]
+pub async fn registry_get_page_request(
+    Path(name): Path<String>,
+    State(registry): State<Registry>, // inital config from server start
+) -> impl IntoResponse {
+    Json(APIReturn::<String> {
+        ok: true,
+        data: match registry.get_page(name) {
+            Ok(i) => i,
+            Err(e) => {
+                return Json(APIReturn::<String> {
+                    ok: false,
+                    data: e.to_string(),
+                })
+            }
+        },
+    })
+}
+
+/// [`Registry::push_page`]
+pub async fn registry_push_page_request(
+    Path(name): Path<String>,
+    State(registry): State<Registry>, // inital config from server start
+    Json(props): Json<RegistryPushRequestBody>,
+) -> impl IntoResponse {
+    Json(APIReturn::<String> {
+        ok: true,
+        data: match registry.push_page(props, name) {
+            Ok(_) => String::new(),
+            Err(e) => {
+                return Json(APIReturn::<String> {
+                    ok: false,
+                    data: e.to_string(),
+                })
+            }
+        },
+    })
+}
+
+/// [`Registry::delete_page`]
+pub async fn registry_delete_page_request(
+    Path(name): Path<String>,
+    State(registry): State<Registry>, // inital config from server start
+    Json(props): Json<RegistryDeleteRequestBody>,
+) -> impl IntoResponse {
+    Json(APIReturn::<String> {
+        ok: true,
+        data: match registry.delete_page(props, name) {
+            Ok(_) => String::new(),
+            Err(e) => {
+                return Json(APIReturn::<String> {
+                    ok: false,
+                    data: e.to_string(),
+                })
+            }
+        },
+    })
+}
+
 // ...
 /// Registry routes
 pub fn registry(config: ServConf) -> Router {
@@ -460,6 +619,9 @@ pub fn registry(config: ServConf) -> Router {
         .route("/:service", get(registry_get_request))
         .route("/:service", post(registry_push_request))
         .route("/:service", delete(registry_delete_request))
+        .route("/book/:service", get(registry_get_page_request))
+        .route("/book/:service", post(registry_push_page_request))
+        .route("/book/:service", delete(registry_delete_page_request))
         .with_state(Registry::new(config.server))
 }
 

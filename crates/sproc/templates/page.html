@@ -1,0 +1,20 @@
+{% extends "base.html" %} {% block title %}{{ page.0 }}{% endblock %} {% block
+content %}
+<article>
+    <div class="footernav">
+        <div class="item"><a href="?action=Book">&lt; Back</a></div>
+        <div class="item">
+            <a href="?page={{ page.0 }}&action=None">View</a>
+        </div>
+        <div class="item">
+            <a href="?page={{ page.0 }}&action=Author">Edit</a>
+        </div>
+    </div>
+
+    <!-- book page view -->
+    <fieldset style="background: transparent !important">
+        <legend>{{ page.0 }}</legend>
+        <section>{{ xsu_util::ui::render_markdown(page.1)|safe }}</section>
+    </fieldset>
+</article>
+{% call super() %} {% endblock %}

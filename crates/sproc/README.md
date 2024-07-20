@@ -2,6 +2,14 @@
 
 **Sproc** is a simplified process manager that uses a composable configuration file to manage multiple services.
 
+## Install
+
+```bash
+git clone https://github.com/hkauso/xsu
+just build
+sudo mv target/release/sproc /usr/bin/sproc
+```
+
 ## Config
 
 Services are defined in Sproc using a simple `services.toml` file (passed into Sproc using the `pin` command).

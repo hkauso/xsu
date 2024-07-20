@@ -569,19 +569,21 @@ pub struct RegistryDeleteRequestBody {
 
 /// A simple registry for service files
 #[derive(Debug, Clone)]
-pub struct Registry(pub ServerConfiguration, pub String);
+pub struct Registry(pub ServerConfiguration, pub String, pub String);
 
 impl Registry {
     /// Create a new [`Registry`]
     pub fn new(config: ServerConfiguration) -> Self {
         let home = env::var("HOME").expect("failed to read $HOME");
         let dir = format!("{home}/.config/xsu-apps/sproc/registry"); // registry file storage location
+        let book_dir = format!("{home}/.config/xsu-apps/sproc/book"); // simple markdown directory
 
         // create registry dir
         fs::mkdir(&dir).expect("failed to create directory");
+        fs::mkdir(&book_dir).expect("failed to create book directory");
 
         // return
-        Self(config, dir)
+        Self(config, dir, book_dir)
     }
 
     /// Get a service given its name
@@ -636,5 +638,56 @@ impl Registry {
 
         // return
         fs::rm(format!("{}/{}.toml", self.1, service))
+    }
+
+    // book
+
+    /// Get a page given its name
+    pub fn get_page(&self, name: String) -> Result<String> {
+        if self.0.registry.enabled == false {
+            return Err(Error::new(
+                ErrorKind::PermissionDenied,
+                "Registry is disabled",
+            ));
+        }
+
+        // return
+        fs::read(format!("{}/{}.md", self.2, name))
+    }
+
+    /// Update (or create) a page in the book given its name and value
+    pub fn push_page(&self, props: RegistryPushRequestBody, name: String) -> Result<()> {
+        if self.0.registry.enabled == false {
+            return Err(Error::new(
+                ErrorKind::PermissionDenied,
+                "Registry is disabled",
+            ));
+        }
+
+        // check key
+        if props.key != self.0.key {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
+        }
+
+        // return
+        fs::write(format!("{}/{}.md", self.2, name), &props.content)
+    }
+
+    /// Delete a page from the book given its name
+    pub fn delete_page(&self, props: RegistryDeleteRequestBody, name: String) -> Result<()> {
+        if self.0.registry.enabled == false {
+            return Err(Error::new(
+                ErrorKind::PermissionDenied,
+                "Registry is disabled",
+            ));
+        }
+
+        // check key
+        if props.key != self.0.key {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
+        }
+
+        // return
+        fs::rm(format!("{}/{}.md", self.2, name))
     }
 }

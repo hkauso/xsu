@@ -1,9 +1,6 @@
 //! Open files and URIs in their correct application
 use clap::{Parser, Subcommand};
-use std::{
-    process::Command,
-    io::{Result, stdout, Write},
-};
+use std::{process::Command, io::Result};
 use xsu_util::process::{no, yes};
 use xsu_appman::config;
 
