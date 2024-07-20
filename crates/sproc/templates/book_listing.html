@@ -1,23 +1,23 @@
-{% extends "base.html" %} {% block title %}Book - {{ config.name }}{% endblock
+{% extends "base.html" %} {% block title %}Books - {{ config.name }}{% endblock
 %} {% block content %}
 <article>
     <div class="footernav">
         <div class="item">
-            <b>{{ pages.len() }}</b>
+            <b>{{ books.len() }}</b>
             total
         </div>
 
         <div class="item">
-            <a href="?action=Author">New</a>
+            <a href="/book/@/new">New Page</a>
         </div>
     </div>
 
     <ul>
-        {% for page in pages %}
+        {% for book in books %}
         <!-- prettier-ignore -->
         <li>
-            <a href="?page={{ page }}">{{ page }}</a>
-            (<a href="?page={{ page }}" target="_blank" title="Open in new window">+</a>)
+            <a href="/book/{{ book }}">{{ book }}</a>
+            (<a href="/book/{{ book }}" target="_blank" title="Open in new window">+</a>)
         </li>
         {% endfor %}
     </ul>

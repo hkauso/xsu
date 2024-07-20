@@ -6,7 +6,19 @@
 
 ```bash
 git clone https://github.com/hkauso/xsu
+cd xsu
 just build
+sudo mv target/release/sproc /usr/bin/sproc
+```
+
+## Update
+
+```bash
+sproc kill-all
+cd xsu
+git pull
+just build
+sudo rm /usr/bin/sproc
 sudo mv target/release/sproc /usr/bin/sproc
 ```
 

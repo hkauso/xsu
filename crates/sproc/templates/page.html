@@ -2,19 +2,19 @@
 content %}
 <article>
     <div class="footernav">
-        <div class="item"><a href="?action=Book">&lt; Back</a></div>
+        <div class="item"><a href="/book/{{ page.0 }}">&lt; Back</a></div>
         <div class="item">
-            <a href="?page={{ page.0 }}&action=None">View</a>
+            <a href="/book/{{ page.0 }}/{{ page.1 }}">View</a>
         </div>
         <div class="item">
-            <a href="?page={{ page.0 }}&action=Author">Edit</a>
+            <a href="/book/{{ page.0 }}/{{ page.1 }}/edit">Edit</a>
         </div>
     </div>
 
     <!-- book page view -->
     <fieldset style="background: transparent !important">
-        <legend>{{ page.0 }}</legend>
-        <section>{{ xsu_util::ui::render_markdown(page.1)|safe }}</section>
+        <legend>{{ page.1 }}</legend>
+        <section>{{ xsu_util::ui::render_markdown(page.2)|safe }}</section>
     </fieldset>
 </article>
 {% call super() %} {% endblock %}

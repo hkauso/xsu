@@ -3,7 +3,7 @@ block content %}
 <article>
     <div class="footernav">
         <div class="item">
-            <a href="?action=None">&lt; Back</a>
+            <a href="/book">&lt; Back</a>
         </div>
     </div>
 
@@ -24,6 +24,15 @@ block content %}
 
         <fieldset>
             <legend>Page</legend>
+
+            <label for="name">Book</label>
+            <input
+                name="book"
+                id="book"
+                type="text"
+                placeholder="Page Book"
+                required
+            />
 
             <label for="name">Name</label>
             <input
@@ -51,7 +60,7 @@ block content %}
             .addEventListener("submit", (e) => {
                 e.preventDefault();
                 fetch(
-                    `/registry/book/${e.target.name.value.replaceAll(" ", "_").replaceAll("/", "_")}`,
+                    `/api/registry/book/${e.target.book.value.replaceAll(" ", "_").replaceAll("/", "_")}/${e.target.name.value.replaceAll(" ", "_").replaceAll("/", "_")}`,
                     {
                         method: "POST",
                         headers: {

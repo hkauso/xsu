@@ -8,7 +8,7 @@ block content %}
         </div>
 
         <div class="item">
-            <a href="?action=Create">New</a>
+            <a href="/registry/new">New</a>
         </div>
     </div>
 
@@ -16,8 +16,8 @@ block content %}
         {% for package in packages %}
         <!-- prettier-ignore -->
         <li>
-            <a href="?read={{ package }}">{{ package }}</a>
-            (<a href="?read={{ package }}" target="_blank" title="Open in new window">+</a>)
+            <a href="/registry/{{ package }}">{{ package }}</a>
+            (<a href="/registry/{{ package }}" target="_blank" title="Open in new window">+</a>)
         </li>
         {% endfor %}
     </ul>

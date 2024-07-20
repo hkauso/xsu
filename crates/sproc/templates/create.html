@@ -3,7 +3,7 @@ block content %}
 <article>
     <div class="footernav">
         <div class="item">
-            <a href="?action=None">&lt; Back</a>
+            <a href="/registry">&lt; Back</a>
         </div>
     </div>
 
@@ -51,7 +51,7 @@ block content %}
             .addEventListener("submit", (e) => {
                 e.preventDefault();
                 fetch(
-                    `/registry/${e.target.name.value.replaceAll(" ", "_").replaceAll("/", "_")}`,
+                    `/api/registry/${e.target.name.value.replaceAll(" ", "_").replaceAll("/", "_")}`,
                     {
                         method: "POST",
                         headers: {

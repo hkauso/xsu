@@ -4,12 +4,12 @@ endblock %} {% block content %}
     {% let fake_name = package.0.replace(".toml", "") %}
 
     <div class="footernav">
-        <div class="item"><a href="?action=List">&lt; Back</a></div>
+        <div class="item"><a href="/registry">&lt; Back</a></div>
         <div class="item">
-            <a href="?read={{ package.0 }}&action=None">View</a>
+            <a href="/registry/{{ package.0 }}">View</a>
         </div>
         <div class="item">
-            <a href="?read={{ package.0 }}&action=Edit">Edit</a>
+            <a href="/registry/{{ package.0 }}/edit">Edit</a>
         </div>
     </div>
 

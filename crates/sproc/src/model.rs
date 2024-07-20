@@ -643,7 +643,7 @@ impl Registry {
     // book
 
     /// Get a page given its name
-    pub fn get_page(&self, name: String) -> Result<String> {
+    pub fn get_page(&self, book: String, name: String) -> Result<String> {
         if self.0.registry.enabled == false {
             return Err(Error::new(
                 ErrorKind::PermissionDenied,
@@ -652,11 +652,16 @@ impl Registry {
         }
 
         // return
-        fs::read(format!("{}/{}.md", self.2, name))
+        fs::read(format!("{}/{book}/{}.md", self.2, name))
     }
 
     /// Update (or create) a page in the book given its name and value
-    pub fn push_page(&self, props: RegistryPushRequestBody, name: String) -> Result<()> {
+    pub fn push_page(
+        &self,
+        props: RegistryPushRequestBody,
+        book: String,
+        name: String,
+    ) -> Result<()> {
         if self.0.registry.enabled == false {
             return Err(Error::new(
                 ErrorKind::PermissionDenied,
@@ -670,11 +675,17 @@ impl Registry {
         }
 
         // return
-        fs::write(format!("{}/{}.md", self.2, name), &props.content)
+        fs::mkdir(format!("{}/{book}", self.2))?;
+        fs::write(format!("{}/{book}/{}.md", self.2, name), &props.content)
     }
 
     /// Delete a page from the book given its name
-    pub fn delete_page(&self, props: RegistryDeleteRequestBody, name: String) -> Result<()> {
+    pub fn delete_page(
+        &self,
+        props: RegistryDeleteRequestBody,
+        book: String,
+        name: String,
+    ) -> Result<()> {
         if self.0.registry.enabled == false {
             return Err(Error::new(
                 ErrorKind::PermissionDenied,
@@ -688,6 +699,16 @@ impl Registry {
         }
 
         // return
-        fs::rm(format!("{}/{}.md", self.2, name))
+        fs::rm(format!("{}/{book}/{}.md", self.2, name))?;
+
+        // read book directory and check if it's empty
+        if let Ok(r) = fs::read_dir(format!("{}/{book}", self.2)) {
+            if r.into_iter().count() == 0 {
+                fs::rmdirr(format!("{}/{book}", self.2))?;
+            }
+        }
+
+        // return
+        Ok(())
     }
 }

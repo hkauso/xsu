@@ -4,12 +4,12 @@ endblock %} {% block content %}
     {% let fake_name = package.0.replace(".toml", "") %}
 
     <div class="footernav">
-        <div class="item"><a href="?action=List">&lt; Back</a></div>
+        <div class="item"><a href="/registry">&lt; Back</a></div>
         <div class="item">
-            <a href="?read={{ package.0 }}&action=None">View</a>
+            <a href="/registry/{{ package.0 }}">View</a>
         </div>
         <div class="item">
-            <a href="?read={{ package.0 }}&action=Edit">Edit</a>
+            <a href="/registry/{{ package.0 }}/edit">Edit</a>
         </div>
     </div>
 
@@ -51,7 +51,7 @@ endblock %} {% block content %}
     <script>
         document.getElementById("edit_form").addEventListener("submit", (e) => {
             e.preventDefault();
-            fetch("/registry/{{ fake_name }}", {
+            fetch("/api/registry/{{ fake_name }}", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -70,7 +70,7 @@ endblock %} {% block content %}
         document
             .getElementById("delete_button")
             .addEventListener("click", (e) => {
-                fetch("/registry/{{ fake_name }}", {
+                fetch("/api/registry/{{ fake_name }}", {
                     method: "DELETE",
                     headers: {
                         "Content-Type": "application/json",

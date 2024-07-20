@@ -317,7 +317,7 @@ async fn sproc<'a>() -> Result<&'a str> {
 
             for name in names {
                 match client
-                    .get(format!("http://{}/registry/{}", registry, name))
+                    .get(format!("http://{}/api/registry/{}", registry, name))
                     .send()
                     .await
                 {
