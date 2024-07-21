@@ -4,7 +4,7 @@ use axum::{
     Json,
 };
 
-use dorsal::DefaultReturn;
+use xsu_dataman::DefaultReturn;
 use serde::{Deserialize, Serialize};
 
 /// Basic user structure
@@ -24,7 +24,7 @@ impl Default for Profile {
             username: String::new(),
             metadata: ProfileMetadata::default(),
             group: 0,
-            joined: dorsal::utility::unix_epoch_timestamp(),
+            joined: xsu_dataman::utility::unix_epoch_timestamp(),
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::model::{DocumentCreate, DatabaseError, Document, DocumentMetadata};
 
-use dorsal::utility;
-use dorsal::query as sqlquery;
+use xsu_dataman::utility;
+use xsu_dataman::query as sqlquery;
 use xsu_authman::model::{Permission, Profile};
 
 pub type Result<T> = std::result::Result<T, DatabaseError>;
@@ -25,19 +25,19 @@ impl Default for ServerOptions {
 /// Database connector
 #[derive(Clone)]
 pub struct Database {
-    pub base: dorsal::StarterDatabase,
+    pub base: xsu_dataman::StarterDatabase,
     pub auth: xsu_authman::Database,
     pub options: ServerOptions,
 }
 
 impl Database {
     pub async fn new(
-        opts: dorsal::DatabaseOpts,
+        opts: xsu_dataman::DatabaseOpts,
         opts1: ServerOptions,
         auth: xsu_authman::Database,
     ) -> Self {
         Self {
-            base: dorsal::StarterDatabase::new(opts).await,
+            base: xsu_dataman::StarterDatabase::new(opts).await,
             auth,
             options: opts1,
         }
@@ -62,11 +62,11 @@ impl Database {
         .await;
     }
 
-    /// Pull [`dorsal::DatabaseOpts`] from env
-    pub fn env_options() -> dorsal::DatabaseOpts {
+    /// Pull [`xsu_dataman::DatabaseOpts`] from env
+    pub fn env_options() -> xsu_dataman::DatabaseOpts {
         use std::env::var;
-        dorsal::DatabaseOpts {
-            _type: match var("DB_TYPE") {
+        xsu_dataman::DatabaseOpts {
+            r#type: match var("DB_TYPE") {
                 Ok(v) => Option::Some(v),
                 Err(_) => Option::None,
             },
@@ -100,7 +100,8 @@ impl Database {
         };
 
         // pull from database
-        let query: String = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
             "SELECT * FROM \"xdocuments\" WHERE \"path\" = ? AND \"owner\" = ?"
         } else {
             "SELECT * FROM \"xdocuments\" WHERE \"path\" = $1 AND \"owner\" = $2"
@@ -114,7 +115,7 @@ impl Database {
             .fetch_one(c)
             .await
         {
-            Ok(p) => self.base.textify_row(p).data,
+            Ok(p) => self.base.textify_row(p).0,
             Err(_) => return Err(DatabaseError::NotFound),
         };
 
@@ -150,7 +151,8 @@ impl Database {
     /// * `owner`
     pub async fn get_documents_by_owner(&self, owner: String) -> Result<Vec<Document>> {
         // pull from database
-        let query: String = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
             "SELECT * FROM \"xdocuments\" WHERE \"owner\" = ?"
         } else {
             "SELECT * FROM \"xdocuments\" WHERE \"owner\" = $2"
@@ -167,7 +169,7 @@ impl Database {
                 let mut out: Vec<Document> = Vec::new();
 
                 for row in p {
-                    let res = self.base.textify_row(row).data;
+                    let res = self.base.textify_row(row).0;
                     out.push(Document {
                         path: res.get("path").unwrap().to_string(),
                         owner: res.get("owner").unwrap().to_string(),
@@ -235,7 +237,8 @@ impl Database {
         };
 
         // create document
-        let query: String = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
             "INSERT INTO \"xdocuments\" VALUES (?, ?, ?, ?, ?, ?)"
         } else {
             "INSERT INTO \"xdocuments\" VALEUS ($1, $2, $3, $4, $5, $6)"
@@ -287,7 +290,8 @@ impl Database {
         }
 
         // delete document
-        let query: String = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
             "DELETE FROM \"xdocuments\" WHERE \"path\" = ? AND \"owner\" = ?"
         } else {
             "DELETE FROM \"xdocuments\" WHERE \"path\" = $1 AND \"owner\" = $2"
@@ -356,7 +360,7 @@ impl Database {
         }
 
         // edit document
-        let query: String = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "UPDATE \"xdocuments\" SET \"content\" = ?, \"path\" = ?, \"date_edited\" = ? WHERE \"path\" = ? AND \"owner\" = ?"
         } else {
             "UPDATE \"xdocuments\" SET (\"content\" = $1, \"path\" = $2, \"date_edited\" = $3) WHERE \"path\" = $4 AND \"owner\" = $5"
@@ -421,7 +425,8 @@ impl Database {
         }
 
         // edit document
-        let query: String = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
             "UPDATE \"xdocuments\" SET \"metadata\" = ? WHERE \"path\" = ? AND \"owner\" = ?"
         } else {
             "UPDATE \"xdocuments\" SET (\"metadata\" = $1) WHERE \"path\" = $2 AND \"owner\" = $3"

@@ -2,7 +2,7 @@
 use crate::model::{DocumentCreate, DocumentEdit, DatabaseError, DocumentEditMetadata, PublicDocument};
 use crate::database::Database;
 use axum::routing::{delete, put};
-use dorsal::DefaultReturn;
+use xsu_dataman::DefaultReturn;
 
 use axum::response::IntoResponse;
 use axum::{

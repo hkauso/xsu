@@ -1,8 +1,8 @@
 use crate::model::Group;
 use crate::model::{Profile, ProfileMetadata, AuthError};
 
-use dorsal::query as sqlquery;
-use dorsal::utility;
+use xsu_dataman::query as sqlquery;
+use xsu_dataman::utility;
 
 pub type Result<T> = std::result::Result<T, AuthError>;
 
@@ -25,17 +25,17 @@ impl Default for ServerOptions {
 /// Database connector
 #[derive(Clone)]
 pub struct Database {
-    pub base: dorsal::StarterDatabase,
+    pub base: xsu_dataman::StarterDatabase,
     pub config: ServerOptions,
 }
 
 impl Database {
     /// Create a new [`Database`]
     pub async fn new(
-        database_options: dorsal::DatabaseOpts,
+        database_options: xsu_dataman::DatabaseOpts,
         server_options: ServerOptions,
     ) -> Self {
-        let base = dorsal::StarterDatabase::new(database_options).await;
+        let base = xsu_dataman::StarterDatabase::new(database_options).await;
 
         Self {
             base: base.clone(),
@@ -44,10 +44,10 @@ impl Database {
     }
 
     /// Pull [`dorsal::DatabaseOpts`] from env
-    pub fn env_options() -> dorsal::DatabaseOpts {
+    pub fn env_options() -> xsu_dataman::DatabaseOpts {
         use std::env::var;
-        dorsal::DatabaseOpts {
-            _type: match var("DB_TYPE") {
+        xsu_dataman::DatabaseOpts {
+            r#type: match var("DB_TYPE") {
                 Ok(v) => Option::Some(v),
                 Err(_) => Option::None,
             },
@@ -98,7 +98,7 @@ impl Database {
     /// * `hashed` - `String` of the profile's hashed ID
     pub async fn get_profile_by_hashed(&self, hashed: String) -> Result<Profile> {
         // fetch from database
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "SELECT * FROM \"xprofiles\" WHERE \"id\" = ?"
         } else {
             "SELECT * FROM \"xprofiles\" WHERE \"id\" = $1"
@@ -106,7 +106,7 @@ impl Database {
 
         let c = &self.base.db.client;
         let row = match sqlquery(query).bind::<&String>(&hashed).fetch_one(c).await {
-            Ok(u) => self.base.textify_row(u).data,
+            Ok(u) => self.base.textify_row(u).0,
             Err(_) => return Err(AuthError::Other),
         };
 
@@ -143,7 +143,7 @@ impl Database {
     /// * `unhashed` - `String` of the user's unhashed secondary token
     pub async fn get_profile_by_unhashed_st(&self, unhashed: String) -> Result<Profile> {
         // fetch from database
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "SELECT * FROM \"xprofiles\" WHERE \"metadata\" LIKE ?"
         } else {
             "SELECT * FROM \"xprofiles\" WHERE \"metadata\" LIKE $1"
@@ -158,7 +158,7 @@ impl Database {
             .fetch_one(c)
             .await
         {
-            Ok(r) => self.base.textify_row(r).data,
+            Ok(r) => self.base.textify_row(r).0,
             Err(_) => return Err(AuthError::Other),
         };
 
@@ -194,7 +194,7 @@ impl Database {
         }
 
         // ...
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "SELECT * FROM \"xprofiles\" WHERE \"username\" = ?"
         } else {
             "SELECT * FROM \"xprofiles\" WHERE \"username\" = $1"
@@ -206,7 +206,7 @@ impl Database {
             .fetch_one(c)
             .await
         {
-            Ok(r) => self.base.textify_row(r).data,
+            Ok(r) => self.base.textify_row(r).0,
             Err(_) => return Err(AuthError::NotFound),
         };
 
@@ -260,14 +260,14 @@ impl Database {
         }
 
         // ...
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "INSERT INTO \"xprofiles\" VALUES (?, ?, ?, ?, ?)"
         } else {
             "INSERT INTO \"xprofiles\" VALUES ($1, $2, $3, $4, $5)"
         };
 
-        let user_id_unhashed: String = dorsal::utility::uuid();
-        let user_id_hashed: String = dorsal::utility::hash(user_id_unhashed.clone());
+        let user_id_unhashed: String = xsu_dataman::utility::uuid();
+        let user_id_hashed: String = xsu_dataman::utility::hash(user_id_unhashed.clone());
         let timestamp = utility::unix_epoch_timestamp().to_string();
 
         let c = &self.base.db.client;
@@ -302,7 +302,7 @@ impl Database {
         };
 
         // update user
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "UPDATE \"xprofiles\" SET \"metadata\" = ? WHERE \"username\" = ?"
         } else {
             "UPDATE \"xprofiles\" SET (\"metadata\") = ($1) WHERE \"username\" = $2"
@@ -335,7 +335,7 @@ impl Database {
         };
 
         // update user
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "UPDATE \"xprofiles\" SET \"gid\" = ? WHERE \"username\" = ?"
         } else {
             "UPDATE \"xprofiles\" SET (\"gid\") = ($1) WHERE \"username\" = $2"
@@ -379,7 +379,7 @@ impl Database {
         }
 
         // ...
-        let query: &str = if (self.base.db._type == "sqlite") | (self.base.db._type == "mysql") {
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
             "SELECT * FROM \"xgroups\" WHERE \"id\" = ?"
         } else {
             "SELECT * FROM \"xgroups\" WHERE \"id\" = $1"
@@ -387,7 +387,7 @@ impl Database {
 
         let c = &self.base.db.client;
         let row = match sqlquery(query).bind::<&i32>(&id).fetch_one(c).await {
-            Ok(r) => self.base.textify_row(r).data,
+            Ok(r) => self.base.textify_row(r).0,
             Err(_) => return Ok(Group::default()),
         };
 

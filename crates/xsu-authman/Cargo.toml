@@ -9,10 +9,10 @@ repository = "https://github.com/hkauso/xsu"
 license = "MIT"
 
 [features]
-postgres = ["dorsal/postgres"]
-mysql = ["dorsal/mysql"]
-sqlite = ["dorsal/sqlite"]
-# default = ["dorsal/sqlite"] # for development
+postgres = ["xsu-dataman/postgres"]
+mysql = ["xsu-dataman/mysql"]
+sqlite = ["xsu-dataman/sqlite"]
+# default = ["xsu-dataman/sqlite"] # for development
 
 [dependencies]
 axum = { version = "0.7.5", features = ["macros"] }
@@ -20,7 +20,7 @@ axum-macros = "0.4.1"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
-dorsal = { version = "0.1.7", default-features = false }
+xsu-dataman = { path = "../xsu-dataman", default-features = false }
 dotenv = "0.15.0"
 axum-extra = { version = "0.9.3", features = ["cookie"] }
 regex = "1.10.5"

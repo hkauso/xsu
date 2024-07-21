@@ -1,0 +1,36 @@
+[package]
+name = "xsu-dataman"
+version = "0.1.0"
+edition = "2021"
+description = "Database connection library"
+authors = ["hkau"]
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+[features]
+postgres = []
+mysql = []
+sqlite = []
+default = ["sqlite"]
+
+[dependencies]
+hex_fmt = "0.3.0"
+redis = "0.25.3"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.115"
+sha2 = "0.10.8"
+uuid = { version = "1.8.0", features = ["v4"] }
+toml = "0.8.14"
+xsu-util = { path = "../xsu-util" }
+
+[dependencies.sqlx]
+version = "0.7.3"
+features = [
+    "sqlite",
+    "postgres",
+    "mysql",
+    "any",
+    "runtime-tokio",
+    "tls-native-tls",
+]

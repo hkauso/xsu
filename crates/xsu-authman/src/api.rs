@@ -2,7 +2,7 @@
 use crate::database::Database;
 use crate::model::{AuthError, Permission, ProfileCreate, ProfileLogin, SetProfileGroup};
 use axum::http::HeaderMap;
-use dorsal::DefaultReturn;
+use xsu_dataman::DefaultReturn;
 
 use axum::response::IntoResponse;
 use axum::{

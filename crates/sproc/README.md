@@ -7,7 +7,7 @@
 ```bash
 git clone https://github.com/hkauso/xsu
 cd xsu
-just build
+just build-s sproc sqlite
 sudo mv target/release/sproc /usr/bin/sproc
 ```
 
@@ -17,7 +17,7 @@ sudo mv target/release/sproc /usr/bin/sproc
 sproc kill-all
 cd xsu
 git pull
-just build
+just build-s sproc sqlite
 sudo rm /usr/bin/sproc
 sudo mv target/release/sproc /usr/bin/sproc
 ```

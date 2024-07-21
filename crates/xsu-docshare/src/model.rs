@@ -5,7 +5,7 @@ use axum::{
 };
 
 use serde::{Deserialize, Serialize};
-use dorsal::DefaultReturn;
+use xsu_dataman::DefaultReturn;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Document {

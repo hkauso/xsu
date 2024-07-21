@@ -558,21 +558,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dorsal"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0d04a67c55a242bb9cf29580e36a0285720a4780d501fdfbf9b1c1b0c4567bb"
-dependencies = [
- "hex_fmt",
- "redis",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "uuid",
-]
-
-[[package]]
 name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1937,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "sproc"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "askama",
  "askama_axum",
@@ -1950,6 +1935,7 @@ dependencies = [
  "tokio",
  "toml",
  "xsu-authman",
+ "xsu-dataman",
  "xsu-docshare",
  "xsu-util",
 ]
@@ -2938,12 +2924,27 @@ dependencies = [
  "axum",
  "axum-extra",
  "axum-macros",
- "dorsal",
  "dotenv",
  "regex",
  "serde",
  "serde_json",
  "tokio",
+ "xsu-dataman",
+]
+
+[[package]]
+name = "xsu-dataman"
+version = "0.1.0"
+dependencies = [
+ "hex_fmt",
+ "redis",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "toml",
+ "uuid",
+ "xsu-util",
 ]
 
 [[package]]
@@ -2953,13 +2954,13 @@ dependencies = [
  "axum",
  "axum-extra",
  "axum-macros",
- "dorsal",
  "dotenv",
  "regex",
  "serde",
  "serde_json",
  "tokio",
  "xsu-authman",
+ "xsu-dataman",
 ]
 
 [[package]]

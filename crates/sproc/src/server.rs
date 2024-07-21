@@ -9,6 +9,7 @@ use std::process::Command;
 
 use xsu_authman::{Database as AuthDatabase, api as AuthApi, model::Profile};
 use xsu_docshare::{Database as DsDatabase, api as DsApi, model::DatabaseError as DsError};
+use xsu_dataman::config::Config as DataConf;
 
 use crate::model::{
     Registry, RegistryConfiguration, RegistryDeleteRequestBody, RegistryPushRequestBody, Service,
@@ -985,14 +986,14 @@ pub fn ds_public(config: ServConf, database: DsDatabase) -> Router {
 pub async fn server(config: ServConf) {
     // create databases
     let auth_database = AuthDatabase::new(
-        AuthDatabase::env_options(),
+        DataConf::get_config().connection, // pull connection config from config file
         xsu_authman::ServerOptions::truthy(),
     )
     .await;
     auth_database.init().await;
 
     let ds_database = DsDatabase::new(
-        DsDatabase::env_options(),
+        DataConf::get_config().connection, // pull connection config from config file
         xsu_docshare::ServerOptions::truthy(),
         auth_database.clone(),
     )
