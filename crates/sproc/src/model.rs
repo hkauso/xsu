@@ -573,7 +573,7 @@ pub struct RegistryDeleteRequestBody {
 
 /// A simple registry for service files
 #[derive(Debug, Clone)]
-pub struct Registry(pub ServerConfiguration, pub String, pub String, pub String);
+pub struct Registry(pub ServerConfiguration, pub String, pub String);
 
 impl Registry {
     /// Create a new [`Registry`]
@@ -581,16 +581,14 @@ impl Registry {
         let home = env::var("HOME").expect("failed to read $HOME");
 
         let dir = format!("{home}/.config/xsu-apps/sproc/registry"); // registry file storage location
-        let book_dir = format!("{home}/.config/xsu-apps/sproc/book"); // simple markdown directory
         let html_dir = format!("{home}/.config/xsu-apps/sproc/html"); // custom html files to serve
 
         // create registry dir
         fs::mkdir(&dir).expect("failed to create directory");
-        fs::mkdir(&book_dir).expect("failed to create book directory");
         fs::mkdir(&html_dir).expect("failed to create html directory");
 
         // return
-        Self(config, dir, book_dir, html_dir)
+        Self(config, dir, html_dir)
     }
 
     /// Get a service given its name
@@ -647,127 +645,6 @@ impl Registry {
         fs::rm(format!("{}/{}.toml", self.1, service))
     }
 
-    // book
-
-    /// Get a page's metadata given its path (path should include extension)
-    pub fn get_page_metadata(&self, path: &String) -> Result<fs::Metadata> {
-        if self.0.registry.enabled == false {
-            return Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Registry is disabled",
-            ));
-        }
-
-        // return
-        fs::fstat(format!("{}/{path}", self.2))
-    }
-
-    /// Get a page given its path (path should include extension)
-    pub fn get_page(&self, path: String) -> Result<String> {
-        if self.0.registry.enabled == false {
-            return Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Registry is disabled",
-            ));
-        }
-
-        // return
-        fs::read(format!("{}/{path}", self.2))
-    }
-
-    /// Update (or create) a page in the book given its path and value (path should include extension)
-    pub fn push_page(&self, props: RegistryPushRequestBody, path: String) -> Result<()> {
-        if self.0.registry.enabled == false {
-            return Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Registry is disabled",
-            ));
-        }
-
-        // check key
-        if props.key != self.0.key {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
-        }
-
-        // write directories
-        let mut dir_path: String = String::new();
-        for dir in path.split("/") {
-            if dir.contains(".") {
-                // file extension
-                break;
-            }
-
-            fs::mkdir(format!("{}/{dir_path}{dir}", self.2))?;
-            dir_path.push_str(&format!("{dir}/")) // this will make sure the next directory we create will include the previous too
-        }
-
-        // return
-        fs::write(format!("{}/{path}", self.2), &props.content)
-    }
-
-    /// Delete a page from the book given its path (path should include extension)
-    pub fn delete_page(&self, props: RegistryDeleteRequestBody, path: String) -> Result<()> {
-        if self.0.registry.enabled == false {
-            return Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Registry is disabled",
-            ));
-        }
-
-        // check key
-        if props.key != self.0.key {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Key is invalid"));
-        }
-
-        // delete
-        fs::rm(format!("{}/{path}", self.2))?;
-
-        // remove empty directories
-        let path_split = path.split("/").collect::<Vec<&str>>();
-        for (i, dir) in path_split.iter().rev().enumerate() {
-            // we need to go through this in reverse
-            if dir.contains(".") {
-                // file extension, already removed, just continue
-                continue;
-            }
-
-            // this is an awful way to do this
-            let all_previous = path_split
-                .iter()
-                .take(path_split.len() - i)
-                .collect::<Vec<&&str>>();
-
-            let mut joined = String::new();
-
-            for prev in all_previous {
-                // couldn't just let me use .join()?
-                joined.push_str(&format!("{}/", prev.replace("/", "")));
-            }
-
-            // check if it's empty
-            if joined == "/" {
-                // don't delete root!
-                break;
-            }
-
-            let path = format!("{}/{joined}", self.2);
-
-            if let Ok(r) = fs::read_dir(&path) {
-                if r.into_iter().count() == 0 {
-                    fs::rmdirr(path)?;
-                } else {
-                    // once we reached the first non-empty directory we'll need to stop
-                    // we're iterating in reverse so the first non-empty directory means all the
-                    // directories after is are ALSO not empty
-                    break;
-                }
-            }
-        }
-
-        // return
-        Ok(())
-    }
-
     // html
 
     /// Get an html page given its name
@@ -780,6 +657,6 @@ impl Registry {
         }
 
         // return
-        fs::read(format!("{}/{path}.html", self.3))
+        fs::read(format!("{}/{path}.html", self.2))
     }
 }

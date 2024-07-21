@@ -1,17 +1,65 @@
 {% extends "base.html" %} {% block title %}{{ doc.path }}{% endblock %} {% block
-content %}
-<article>
+under_nav %}
+<nav id="page_actions">
     <div class="footernav">
-        <div class="item"><a href="/doc">&lt; Root</a></div>
         <div class="item">
-            <a href="/doc/edit/~{{ doc.owner }}/{{ doc.path }}">Edit</a>
+            <a href="/doc" class="button">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 16 16"
+                    width="18"
+                    height="18"
+                    aria-label="Left arrow symbol"
+                    class="icon"
+                >
+                    <path
+                        d="M7.78 12.53a.75.75 0 0 1-1.06 0L2.47 8.28a.75.75 0 0 1 0-1.06l4.25-4.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L4.81 7h7.44a.75.75 0 0 1 0 1.5H4.81l2.97 2.97a.75.75 0 0 1 0 1.06Z"
+                    ></path>
+                </svg>
+                Root
+            </a>
+        </div>
+
+        <div class="item">
+            <div class="flex gap-1">
+                <a
+                    href="/doc/~{{ doc.owner }}/{{ doc.path }}"
+                    class="button primary"
+                >
+                    View
+                </a>
+
+                <a
+                    href="/doc/edit/~{{ doc.owner }}/{{ doc.path }}"
+                    class="button"
+                >
+                    Edit
+                </a>
+            </div>
         </div>
     </div>
-
-    <!-- book page view -->
+</nav>
+{% endblock %} {% block content %}
+<article>
     <fieldset>
         <legend>{{ doc.path }}</legend>
         <section>{{ xsu_util::ui::render_markdown(doc.content)|safe }}</section>
+    </fieldset>
+
+    <fieldset>
+        <legend>Metadata</legend>
+
+        <ul>
+            <li>
+                <b>published:</b>
+                <code>{{ doc.date_published }}</code>
+            </li>
+
+            <li>
+                <b>edited:</b>
+                <code>{{ doc.date_edited }}</code>
+            </li>
+        </ul>
     </fieldset>
 </article>
 {% call super() %} {% endblock %}

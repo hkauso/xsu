@@ -27,6 +27,8 @@
                 --color-raised: hsl(0, 0%, 95%);
                 --color-super-lowered: hsl(0, 0%, 90%);
                 --color-super-raised: hsl(0, 0%, 90%);
+                --color-primary: hsl(212, 45%, 45%);
+                --color-primary-lowered: hsl(212, 45%, 40%);
                 --color-text: hsl(0, 0%, 0%);
                 --radius: 0.125rem;
             }
@@ -41,6 +43,11 @@
                 background: var(--color-surface);
             }
 
+            #page {
+                background: var(--color-surface);
+                padding: 0.5rem;
+            }
+
             main {
                 margin: auto;
                 width: 100%;
@@ -51,10 +58,17 @@
 
             @media (min-width: 768px) {
                 main {
-                    width: 80ch;
+                    width: calc(
+                        /* 1rem to account for both sides of the #page padding */
+                            80ch + 1rem
+                    );
                     padding-left: 0.5rem;
                     padding-right: 0.5rem;
                 }
+            }
+
+            svg.icon {
+                fill: currentColor;
             }
 
             ol,
@@ -126,21 +140,45 @@
             a.button {
                 background: var(--color-lowered);
                 color: var(--color-text);
-                padding: 0.25rem 0.75rem;
-                min-height: 32px;
+                padding: 0.15rem 0.75rem;
+                min-height: 28px;
                 min-width: max-content;
                 width: max-content;
                 border: 0;
                 outline: none;
                 cursor: pointer;
                 border-radius: var(--radius);
-                transition: background 0.15s;
+                outline: solid 1px transparent;
+                transition:
+                    background 0.15s,
+                    outline 0.08s,
+                    outline-color 0.15s;
                 user-select: none;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 0.25rem;
             }
 
             button:hover,
             a.button:hover {
                 background: var(--color-super-lowered);
+            }
+
+            button.primary,
+            a.button.primary {
+                background: var(--color-primary);
+                color: white;
+            }
+
+            button.primary:hover,
+            a.button.primary:hover {
+                background: var(--color-primary-lowered);
+            }
+
+            button:hover {
+                outline: solid 2px var(--color-super-lowered);
+                outline-offset: 2px;
             }
 
             textarea {
@@ -314,6 +352,12 @@
                 justify-content: space-between;
                 color: var(--color-text);
                 padding: 0.25rem;
+                position: sticky;
+                top: 0;
+                z-index: 6374;
+            }
+
+            nav:last-of-type {
                 margin-bottom: 0.2rem;
             }
 
@@ -322,7 +366,6 @@
             nav a.button {
                 border-radius: var(--radius);
                 color: inherit;
-                text-decoration: none;
                 min-height: max-content;
                 height: max-content;
                 background: inherit;
@@ -407,8 +450,10 @@
             </div>
         </nav>
 
+        {% block under_nav %}{% endblock %}
+
         <main>
-            {% block content %}{% endblock %}
+            <div id="page">{% block content %}{% endblock %}</div>
 
             <hr />
             <div class="footernav justify-center" style="width: 100%">
