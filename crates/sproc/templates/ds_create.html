@@ -1,0 +1,60 @@
+{% extends "base.html" %} {% block title %}DocShare - {{ config.name }}{%
+endblock %} {% block content %}
+<article>
+    <div class="footernav">
+        <div class="item">
+            <div class="item"><a href="/doc">&lt; Root</a></div>
+        </div>
+    </div>
+
+    <form id="create_form">
+        <fieldset>
+            <legend>Page</legend>
+
+            <label for="path">Path</label>
+            <input
+                name="path"
+                id="path"
+                type="text"
+                placeholder="Page Path"
+                required
+            />
+
+            <label for="content">Content</label>
+            <!-- prettier-ignore -->
+            <textarea name="content" id="content" placeholder="Hello, world!" required></textarea>
+        </fieldset>
+
+        <fieldset>
+            <legend>Actions</legend>
+            <button>Submit</button>
+        </fieldset>
+    </form>
+
+    <script>
+        document
+            .getElementById("create_form")
+            .addEventListener("submit", (e) => {
+                e.preventDefault();
+                fetch(`/api/ds/new`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        path: e.target.path.value,
+                        content: e.target.content.value,
+                    }),
+                })
+                    .then((res) => res.json())
+                    .then((res) => {
+                        alert(`${res.success ? "OK" : "ERR"} ${res.message}`);
+
+                        if (res.success) {
+                            window.location.href = "/doc";
+                        }
+                    });
+            });
+    </script>
+</article>
+{% call super() %} {% endblock %}

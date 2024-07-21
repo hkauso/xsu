@@ -1,12 +1,18 @@
 [package]
 name = "sproc"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 authors = ["hkau"]
 description = "Simple service management"
 homepage = "https://swmff.org"
 repository = "https://github.com/hkauso/xsu"
 license = "MIT"
+
+[features]
+postgres = ["xsu-authman/postgres", "xsu-docshare/postgres"]
+mysql = ["xsu-authman/mysql", "xsu-docshare/mysql"]
+sqlite = ["xsu-authman/sqlite", "xsu-docshare/sqlite"]
+default = ["xsu-authman/sqlite", "xsu-docshare/sqlite"]
 
 [dependencies]
 askama = { version = "0.12.1", features = ["with-axum"] }
@@ -21,6 +27,7 @@ tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
 toml = "0.8.14"
 xsu-util = { path = "../xsu-util" }
 xsu-authman = { path = "../xsu-authman" }
+xsu-docshare = { path = "../xsu-docshare" }
 
 [[bin]]
 path = "src/main.rs"

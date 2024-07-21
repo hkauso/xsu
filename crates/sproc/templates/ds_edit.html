@@ -1,0 +1,79 @@
+{% extends "base.html" %} {% block title %}{{ doc.path }} - {{ config.name }}{%
+endblock %} {% block content %}
+<article>
+    <div class="footernav">
+        <div class="item"><a href="/doc">&lt; Root</a></div>
+        <div class="item">
+            <a href="/doc/~{{ doc.owner }}/{{ doc.path }}">View</a>
+        </div>
+    </div>
+
+    <h2>{{ doc.path }}</h2>
+
+    <!-- docshare edit page -->
+    <form id="edit_form">
+        <fieldset>
+            <legend>Page</legend>
+            <label for="content">Content</label>
+            <!-- prettier-ignore -->
+            <textarea name="content" id="content" required>{{ doc.content }}</textarea>
+
+            <label for="content">New Path (optional)</label>
+            <input
+                name="new_path"
+                id="new_path"
+                type="text"
+                placeholder="New Path (no username, no change keeps old path)"
+            />
+        </fieldset>
+
+        <fieldset>
+            <legend>Actions</legend>
+
+            <div class="flex gap-1">
+                <button>Submit</button>
+                <button type="button" id="delete_button">Delete</button>
+            </div>
+        </fieldset>
+    </form>
+
+    <script>
+        document.getElementById("edit_form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            fetch("/api/ds/~{{ doc.owner }}/{{ doc.path }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    new_path: e.target.new_path.value || "",
+                    new_content: e.target.content.value,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    alert(`${res.success ? "OK" : "ERR"} ${res.message}`);
+                });
+        });
+
+        document
+            .getElementById("delete_button")
+            .addEventListener("click", (e) => {
+                if (!confirm("Are you sure you would like to do this?")) {
+                    return;
+                }
+
+                fetch("/api/ds/~{{ doc.owner }}/{{ doc.path }}", {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                })
+                    .then((res) => res.json())
+                    .then((res) => {
+                        alert(`${res.success ? "OK" : "ERR"} ${res.message}`);
+                    });
+            });
+    </script>
+</article>
+{% call super() %} {% endblock %}

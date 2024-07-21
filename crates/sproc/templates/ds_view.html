@@ -1,0 +1,17 @@
+{% extends "base.html" %} {% block title %}{{ doc.path }}{% endblock %} {% block
+content %}
+<article>
+    <div class="footernav">
+        <div class="item"><a href="/doc">&lt; Root</a></div>
+        <div class="item">
+            <a href="/doc/edit/~{{ doc.owner }}/{{ doc.path }}">Edit</a>
+        </div>
+    </div>
+
+    <!-- book page view -->
+    <fieldset>
+        <legend>{{ doc.path }}</legend>
+        <section>{{ xsu_util::ui::render_markdown(doc.content)|safe }}</section>
+    </fieldset>
+</article>
+{% call super() %} {% endblock %}

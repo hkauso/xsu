@@ -1950,6 +1950,7 @@ dependencies = [
  "tokio",
  "toml",
  "xsu-authman",
+ "xsu-docshare",
  "xsu-util",
 ]
 
@@ -2943,6 +2944,22 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "xsu-docshare"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-extra",
+ "axum-macros",
+ "dorsal",
+ "dotenv",
+ "regex",
+ "serde",
+ "serde_json",
+ "tokio",
+ "xsu-authman",
 ]
 
 [[package]]

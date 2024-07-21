@@ -6,7 +6,9 @@ use axum::routing::{delete, get};
 use axum::{extract::State, response::Html, routing::post, Json, Router};
 use axum_extra::extract::CookieJar;
 use std::process::Command;
-use xsu_authman::{Database, api, model::Profile};
+
+use xsu_authman::{Database as AuthDatabase, api as AuthApi, model::Profile};
+use xsu_docshare::{Database as DsDatabase, api as DsApi, model::DatabaseError as DsError};
 
 use crate::model::{
     Registry, RegistryConfiguration, RegistryDeleteRequestBody, RegistryPushRequestBody, Service,
@@ -295,6 +297,41 @@ struct MyAccountTemplate {
     me: Profile,
 }
 
+#[derive(Template)]
+#[template(path = "ds_listing.html")]
+struct DocshareListingTemplate {
+    config: RegistryConfiguration,
+    pages: Vec<xsu_docshare::model::Document>,
+    username: String,
+}
+
+#[derive(Template)]
+#[template(path = "ds_view.html")]
+struct DocshareViewTemplate {
+    config: RegistryConfiguration,
+    doc: xsu_docshare::model::Document,
+}
+
+#[derive(Template)]
+#[template(path = "ds_edit.html")]
+struct DocshareEditTemplate {
+    config: RegistryConfiguration,
+    doc: xsu_docshare::model::Document,
+}
+
+#[derive(Template)]
+#[template(path = "ds_create.html")]
+struct DocshareCreateTemplate {
+    config: RegistryConfiguration,
+}
+
+#[derive(Template)]
+#[template(path = "error.html")]
+struct ErrorTemplate {
+    config: RegistryConfiguration,
+    error: String,
+}
+
 #[derive(Deserialize)]
 pub struct IndexBody {
     key: String,
@@ -302,7 +339,7 @@ pub struct IndexBody {
 
 /// GET /
 pub async fn registry_index_request(
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         HomepageTemplate {
@@ -316,7 +353,7 @@ pub async fn registry_index_request(
 /// GET /registry/:name
 pub async fn registry_service_view_request(
     Path(service): Path<String>,
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         ViewTemplate {
@@ -334,7 +371,7 @@ pub async fn registry_service_view_request(
 /// GET /registry/:name/edit
 pub async fn registry_service_edit_request(
     Path(service): Path<String>,
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         EditTemplate {
@@ -351,7 +388,7 @@ pub async fn registry_service_edit_request(
 
 /// GET /registry/new
 pub async fn registry_service_create_request(
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         CreateTemplate {
@@ -364,7 +401,7 @@ pub async fn registry_service_create_request(
 
 /// GET /registry
 pub async fn registry_listing_request(
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     // get services
     let mut packages = Vec::new();
@@ -391,7 +428,7 @@ pub async fn registry_listing_request(
 /// GET /book/:path
 pub async fn registry_book_page_view_request(
     Path(path): Path<String>,
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     // if this path links to a directory, show listing
     let metadata = match registry.get_page_metadata(&path) {
@@ -439,7 +476,7 @@ pub async fn registry_book_page_view_request(
 
 /// GET /book
 pub async fn registry_base_listing_request(
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     // get pages
     let mut pages = Vec::new();
@@ -467,7 +504,7 @@ pub async fn registry_base_listing_request(
 /// GET /book_admin/edit/:path
 pub async fn registry_book_page_edit_request(
     Path(path): Path<String>,
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         EditPageTemplate {
@@ -484,7 +521,7 @@ pub async fn registry_book_page_edit_request(
 
 /// GET /book_admin/new
 pub async fn registry_book_page_create_request(
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         PageCreateTemplate {
@@ -497,7 +534,7 @@ pub async fn registry_book_page_create_request(
 
 /// POST /
 pub async fn registry_manage_server_request(
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
     Form(body): Form<IndexBody>,
 ) -> impl IntoResponse {
     // check key
@@ -534,7 +571,7 @@ pub async fn registry_manage_server_request(
 /// Used for custom app pages for services.
 pub async fn registry_custom_request(
     Path(path): Path<String>,
-    State((registry, _)): State<(Registry, Database)>,
+    State((registry, _)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     Html(
         CustomTemplate {
@@ -552,7 +589,7 @@ pub async fn registry_custom_request(
 /// GET /account
 pub async fn registry_auth_request(
     jar: CookieJar,
-    State((registry, database)): State<(Registry, Database)>,
+    State((registry, database)): State<(Registry, AuthDatabase)>,
 ) -> impl IntoResponse {
     // my account
     if let Some(cookie) = jar.get("__Secure-Token") {
@@ -578,6 +615,178 @@ pub async fn registry_auth_request(
     Html(
         AuthTemplate {
             config: registry.0.registry.clone(),
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+/// GET /doc
+pub async fn docshare_index_request(
+    jar: CookieJar,
+    State((registry, database)): State<(Registry, DsDatabase)>,
+) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Html(
+                    ErrorTemplate {
+                        config: registry.0.registry,
+                        error: e.to_string(),
+                    }
+                    .render()
+                    .unwrap(),
+                );
+            }
+        },
+        None => {
+            return Html(
+                ErrorTemplate {
+                    config: registry.0.registry,
+                    error: DsError::NotAllowed.to_string(),
+                }
+                .render()
+                .unwrap(),
+            );
+        }
+    };
+
+    // get pages
+    let pages = match database
+        .get_documents_by_owner(auth_user.username.clone())
+        .await
+    {
+        Ok(ls) => ls,
+        Err(e) => {
+            return Html(
+                ErrorTemplate {
+                    config: registry.0.registry,
+                    error: e.to_string(),
+                }
+                .render()
+                .unwrap(),
+            )
+        }
+    };
+
+    // return
+    Html(
+        DocshareListingTemplate {
+            config: registry.0.registry,
+            pages,
+            username: auth_user.username,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+/// GET /doc/~:owner/*path
+pub async fn docshare_view_request(
+    Path((owner, path)): Path<(String, String)>,
+    State((registry, database)): State<(Registry, DsDatabase)>,
+) -> impl IntoResponse {
+    let doc = match database.get_document(path, owner).await {
+        Ok(ls) => ls,
+        Err(e) => {
+            return Html(
+                ErrorTemplate {
+                    config: registry.0.registry,
+                    error: e.to_string(),
+                }
+                .render()
+                .unwrap(),
+            )
+        }
+    };
+
+    // return
+    Html(
+        DocshareViewTemplate {
+            config: registry.0.registry,
+            doc,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+/// GET /doc/edit/~:owner/*path
+pub async fn docshare_edit_request(
+    Path((owner, path)): Path<(String, String)>,
+    State((registry, database)): State<(Registry, DsDatabase)>,
+) -> impl IntoResponse {
+    let doc = match database.get_document(path, owner).await {
+        Ok(ls) => ls,
+        Err(e) => {
+            return Html(
+                ErrorTemplate {
+                    config: registry.0.registry,
+                    error: e.to_string(),
+                }
+                .render()
+                .unwrap(),
+            )
+        }
+    };
+
+    // return
+    Html(
+        DocshareEditTemplate {
+            config: registry.0.registry,
+            doc,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+/// GET /doc/new
+pub async fn docshare_create_request(
+    jar: CookieJar,
+    State((registry, database)): State<(Registry, DsDatabase)>,
+) -> impl IntoResponse {
+    // get user from token
+    match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Html(
+                    ErrorTemplate {
+                        config: registry.0.registry,
+                        error: e.to_string(),
+                    }
+                    .render()
+                    .unwrap(),
+                );
+            }
+        },
+        None => {
+            return Html(
+                ErrorTemplate {
+                    config: registry.0.registry,
+                    error: DsError::NotAllowed.to_string(),
+                }
+                .render()
+                .unwrap(),
+            );
+        }
+    };
+
+    // return
+    Html(
+        DocshareCreateTemplate {
+            config: registry.0.registry,
         }
         .render()
         .unwrap(),
@@ -735,7 +944,7 @@ pub fn registry_api(config: ServConf) -> Router {
 }
 
 /// Public registry page routes
-pub fn registry_public(config: ServConf, database: Database) -> Router {
+pub fn registry_public(config: ServConf, database: AuthDatabase) -> Router {
     Router::new()
         .route("/", get(registry_index_request))
         .route("/", post(registry_manage_server_request))
@@ -761,15 +970,34 @@ pub fn registry_public(config: ServConf, database: Database) -> Router {
         .with_state((Registry::new(config.server), database))
 }
 
+/// Docshare page routes
+pub fn ds_public(config: ServConf, database: DsDatabase) -> Router {
+    Router::new()
+        .route("/", get(docshare_index_request))
+        .route("/new", get(docshare_create_request))
+        .route("/edit/~:owner/*path", get(docshare_edit_request))
+        .route("/~:owner/*path", get(docshare_view_request))
+        // ...
+        .with_state((Registry::new(config.server), database))
+}
+
 /// Main server process
 pub async fn server(config: ServConf) {
-    // create database
-    let database = Database::new(
-        Database::env_options(),
+    // create databases
+    let auth_database = AuthDatabase::new(
+        AuthDatabase::env_options(),
         xsu_authman::ServerOptions::truthy(),
     )
     .await;
-    database.init().await;
+    auth_database.init().await;
+
+    let ds_database = DsDatabase::new(
+        DsDatabase::env_options(),
+        xsu_docshare::ServerOptions::truthy(),
+        auth_database.clone(),
+    )
+    .await;
+    ds_database.init().await;
 
     // create app
     let app = Router::new()
@@ -778,9 +1006,14 @@ pub async fn server(config: ServConf) {
         .route("/info", post(info_request))
         .route("/install", post(install_request))
         .route("/uninstall", post(uninstall_request))
+        // api
         .nest_service("/api/registry", registry_api(config.clone()))
-        .nest_service("/api/auth", api::routes(database.clone()))
-        .nest_service("/", registry_public(config.clone(), database.clone()))
+        .nest_service("/api/auth", AuthApi::routes(auth_database.clone()))
+        .nest_service("/api/ds", DsApi::routes(ds_database.clone()))
+        // extras
+        .nest_service("/", registry_public(config.clone(), auth_database.clone()))
+        .nest_service("/doc", ds_public(config.clone(), ds_database.clone()))
+        // ...
         .fallback(not_found)
         .with_state(config.clone());
 

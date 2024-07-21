@@ -1,8 +1,8 @@
 [package]
-name = "xsu-authman"
+name = "xsu-docshare"
 version = "0.1.0"
 edition = "2021"
-description = "Authentication manager"
+description = "Markdown document storage"
 authors = ["hkau"]
 homepage = "https://swmff.org"
 repository = "https://github.com/hkauso/xsu"
@@ -24,10 +24,11 @@ dorsal = { version = "0.1.7", default-features = false }
 dotenv = "0.15.0"
 axum-extra = { version = "0.9.3", features = ["cookie"] }
 regex = "1.10.5"
+xsu-authman = { path = "../xsu-authman" }
 
 [[bin]]
 path = "src/main.rs"
-name = "xsu-authman"
+name = "xsu-docshare"
 test = false
 
 [lib]

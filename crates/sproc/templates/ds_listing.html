@@ -1,0 +1,25 @@
+{% extends "base.html" %} {% block title %}My Documents - {{ config.name }}{%
+endblock %} {% block content %}
+<article>
+    <div class="footernav">
+        <div class="item">
+            <b>{{ pages.len() }}</b>
+            total
+        </div>
+
+        <div class="item">
+            <a href="/doc/new">New</a>
+        </div>
+    </div>
+
+    <ul>
+        {% for page in pages %}
+        <!-- prettier-ignore -->
+        <li>
+            <a href="/doc/~{{ username }}/{{ page.path }}">{{ page.path }}</a>
+            (<a href="/doc/~{{ username }}/{{ page.path }}" target="_blank" title="Open in new window">+</a>)
+        </li>
+        {% endfor %}
+    </ul>
+</article>
+{% call super() %} {% endblock %}
