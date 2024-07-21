@@ -767,10 +767,9 @@ pub fn registry_public(config: ServConf, database: AuthDatabase) -> Router {
 pub fn ds_public(config: ServConf, database: DsDatabase) -> Router {
     Router::new()
         .route("/", get(docshare_index_request))
-        // .route("/~:username", get(authman_user_profile_request))
-        .route("/doc/new", get(docshare_create_request))
-        .route("/doc/edit/~:owner/*path", get(docshare_edit_request))
-        .route("/doc/~:owner/*path", get(docshare_view_request))
+        .route("/new", get(docshare_create_request))
+        .route("/edit/~:owner/*path", get(docshare_edit_request))
+        .route("/~:owner/*path", get(docshare_view_request))
         // ...
         .with_state((Registry::new(config.server), database))
 }
@@ -805,7 +804,10 @@ pub async fn server(config: ServConf) {
         .nest_service("/api/auth", AuthApi::routes(auth_database.clone()))
         .nest_service("/api/ds", DsApi::routes(ds_database.clone()))
         // extras
-        .nest_service("/", registry_public(config.clone(), auth_database.clone()))
+        .nest_service(
+            "/doc",
+            registry_public(config.clone(), auth_database.clone()),
+        )
         .nest_service("/", ds_public(config.clone(), ds_database.clone()))
         // ...
         .fallback(not_found)
