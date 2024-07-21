@@ -804,11 +804,8 @@ pub async fn server(config: ServConf) {
         .nest_service("/api/auth", AuthApi::routes(auth_database.clone()))
         .nest_service("/api/ds", DsApi::routes(ds_database.clone()))
         // extras
-        .nest_service(
-            "/doc",
-            registry_public(config.clone(), auth_database.clone()),
-        )
-        .nest_service("/", ds_public(config.clone(), ds_database.clone()))
+        .nest_service("/", registry_public(config.clone(), auth_database.clone()))
+        .nest_service("/doc", ds_public(config.clone(), ds_database.clone()))
         // ...
         .fallback(not_found)
         .with_state(config.clone());
