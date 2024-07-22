@@ -1,6 +1,6 @@
-# Extensible System Utils
+# 🐸 Extensible System Utils
 
-Modern but familiar system utilities.
+Modern but familiar system utilities!
 
 ## Members
 
@@ -13,3 +13,4 @@ Modern but familiar system utilities.
 * (L, B) `xsu-docshare` - markdown document manager
 * (L) `xsu-util` - basic shared utilities for xsu-* applications
 * (L) `xsu-dataman` - database connection manager
+* (B) `xsu-cliff` - "homepage" http server for serving sproc daemon, docshare server, authman ui, etc

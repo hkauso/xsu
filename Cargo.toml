@@ -7,5 +7,6 @@ members = [
     "crates/xsu-open",
     "crates/xsu-authman", 
     "crates/xsu-docshare",
-    "crates/xsu-dataman"
+    "crates/xsu-dataman",
+    "crates/xsu-cliff"
 ]

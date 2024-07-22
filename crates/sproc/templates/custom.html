@@ -1,8 +1,0 @@
-{% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
-block content %}
-<pre
-    style="white-space: pre-wrap"
-><code>This is a custom page provided by an installed service. It is not known if it is safe or not.</code></pre>
-<hr />
-<article>{{ content|safe }}</article>
-{% call super() %} {% endblock %}

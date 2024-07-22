@@ -1,18 +1,18 @@
 [package]
-name = "sproc"
-version = "0.7.0"
+name = "xsu-cliff"
+version = "0.1.0"
 edition = "2021"
 authors = ["hkau"]
-description = "Simple service management"
+description = "Application web UI"
 homepage = "https://swmff.org"
 repository = "https://github.com/hkauso/xsu"
 license = "MIT"
 
 [features]
-postgres = ["xsu-authman/postgres"]
-mysql = ["xsu-authman/mysql"]
-sqlite = ["xsu-authman/sqlite"]
-default = ["xsu-authman/sqlite"]
+postgres = ["xsu-dataman/postgres", "xsu-authman/postgres", "xsu-docshare/postgres", "sproc/postgres"]
+mysql = ["xsu-dataman/mysql", "xsu-authman/mysql", "xsu-docshare/mysql", "sproc/mysql"]
+sqlite = ["xsu-dataman/sqlite", "xsu-authman/sqlite", "xsu-docshare/sqlite", "sproc/sqlite"]
+default = ["xsu-dataman/sqlite", "xsu-authman/sqlite", "xsu-docshare/sqlite", "sproc/sqlite"]
 
 [dependencies]
 askama = { version = "0.12.1", features = ["with-axum"] }
@@ -25,14 +25,14 @@ serde = { version = "1.0.203", features = ["derive"] }
 sysinfo = "0.30.12"
 tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
 toml = "0.8.14"
+tower-http = { version = "0.5.2", features = ["fs"] }
 xsu-util = { path = "../xsu-util" }
+xsu-dataman = { path = "../xsu-dataman", default-features = false }
 xsu-authman = { path = "../xsu-authman", default-features = false }
+xsu-docshare = { path = "../xsu-docshare", default-features = false }
+sproc = { path = "../sproc", default-features = false }
 
 [[bin]]
 path = "src/main.rs"
-name = "sproc"
+name = "xsu-cliff"
 test = false
-
-[lib]
-path = "src/lib.rs"
-doctest = false

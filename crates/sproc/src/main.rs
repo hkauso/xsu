@@ -23,7 +23,7 @@ enum Commands {
     Pin { path: String },
     /// Run a configured service
     Run { names: Vec<String> },
-    /// Spawn a service as a new task (HTTP server required: `srpoc serve`)
+    /// Spawn a service as a new task (HTTP server required: `xsu-cliff`)
     Spawn { names: Vec<String> },
     /// Run all services
     RunAll {},
@@ -37,8 +37,6 @@ enum Commands {
     InfoAll {},
     /// Wait for service to stop and update its state accordingly
     Track { name: String },
-    /// Start server
-    Serve {},
     /// View pinned config
     Pinned {},
     /// Merge services from given file into **source** configuration file (unpinned file)
@@ -146,7 +144,10 @@ async fn sproc<'a>() -> Result<&'a str> {
                 match services.services.get(name) {
                     Some(_) => {
                         match client
-                            .post(format!("http://localhost:{}/start", services.server.port))
+                            .post(format!(
+                                "http://localhost:{}/api/sproc/start",
+                                services.server.port
+                            ))
                             .body(format!(
                                 "{{ \"service\":\"{}\",\"key\":\"{}\" }}",
                                 name, services.server.key
@@ -266,11 +267,6 @@ async fn sproc<'a>() -> Result<&'a str> {
             }
             None => Err(Error::new(ErrorKind::NotFound, "Service does not exist.")),
         },
-        // serve
-        Commands::Serve {} => {
-            server::server(services).await;
-            Ok("Finished.")
-        }
         // pinned
         Commands::Pinned {} => {
             println!("{}", toml::to_string_pretty(&services).unwrap());

@@ -97,7 +97,7 @@ block content %}
 
     <script>
         globalThis.start_service = (e, name) => {
-            fetch("/start", {
+            fetch("/api/sproc/start", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -136,7 +136,7 @@ block content %}
         };
 
         globalThis.kill_service = (e, name) => {
-            fetch("/kill", {
+            fetch("/api/sproc/kill", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -178,7 +178,7 @@ block content %}
                 return;
             }
 
-            fetch("/uninstall", {
+            fetch("/api/sproc/uninstall", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -199,7 +199,7 @@ block content %}
         };
 
         globalThis.get_service_info = (e, name) => {
-            fetch("/info", {
+            fetch("/api/sproc/info", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -229,7 +229,7 @@ block content %}
                     .getElementById("install_button")
                     .setAttribute("disabled", "");
 
-                fetch("/install", {
+                fetch("/api/sproc/install", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

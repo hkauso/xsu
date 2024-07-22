@@ -573,22 +573,21 @@ pub struct RegistryDeleteRequestBody {
 
 /// A simple registry for service files
 #[derive(Debug, Clone)]
-pub struct Registry(pub ServerConfiguration, pub String, pub String);
+pub struct Registry(pub ServerConfiguration, pub String);
 
 impl Registry {
     /// Create a new [`Registry`]
     pub fn new(config: ServerConfiguration) -> Self {
         let home = env::var("HOME").expect("failed to read $HOME");
-
         let dir = format!("{home}/.config/xsu-apps/sproc/registry"); // registry file storage location
-        let html_dir = format!("{home}/.config/xsu-apps/sproc/html"); // custom html files to serve
 
         // create registry dir
         fs::mkdir(&dir).expect("failed to create directory");
-        fs::mkdir(&html_dir).expect("failed to create html directory");
+        fs::mkdir(&format!("{home}/.config/xsu-apps/sproc/static"))
+            .expect("failed to create static directory");
 
         // return
-        Self(config, dir, html_dir)
+        Self(config, dir)
     }
 
     /// Get a service given its name
@@ -643,20 +642,5 @@ impl Registry {
 
         // return
         fs::rm(format!("{}/{}.toml", self.1, service))
-    }
-
-    // html
-
-    /// Get an html page given its name
-    pub fn get_html(&self, path: String) -> Result<String> {
-        if self.0.registry.enabled == false {
-            return Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Registry is disabled",
-            ));
-        }
-
-        // return
-        fs::read(format!("{}/{path}.html", self.2))
     }
 }
