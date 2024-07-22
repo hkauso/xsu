@@ -1,5 +1,7 @@
 {% extends "base.html" %} {% block title %}{{ doc.path }}{% endblock %} {% block
-under_nav %}
+head %}
+<meta property="og:title" content="{{ doc.path }}" />
+{% endblock %} {% block under_nav %}
 <nav id="page_actions">
     <div class="footernav">
         <div class="item">
