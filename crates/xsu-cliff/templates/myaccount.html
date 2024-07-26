@@ -7,7 +7,7 @@ endblock %} {% block content %}
         <ul>
             <li>
                 <b>joined:</b>
-                <code>{{ me.joined }}</code>
+                <code class="date">{{ me.joined }}</code>
             </li>
             <li>
                 <b>group id:</b>
@@ -17,7 +17,13 @@ endblock %} {% block content %}
 
         <fieldset id="metadata">
             <legend>Metadata</legend>
-            <!-- TODO: all metadata options + user about -->
+
+            <div id="metadata_editor" class="flex flex-col gap-1"></div>
+
+            <hr />
+            <form id="metadata_submit_form">
+                <button>Submit</button>
+            </form>
         </fieldset>
     </fieldset>
 
@@ -29,4 +35,72 @@ endblock %} {% block content %}
         </div>
     </fieldset>
 </article>
+
+<!-- prettier-ignore -->
+<script type="application/json" id="my_metadata">{{ my_metadata|safe }}</script>
+
+<script>
+    const metadata = reg_ns("metadata");
+
+    metadata.define("editor", function ({ $ }, bind_to, metadata) {
+        $.update_metadata_value = (name, value) => {
+            metadata[name] = value;
+        };
+
+        // ...
+        if (Object.entries(metadata).length == 0) {
+            bind_to.innerHTML = `<div class="card secondary round">
+                    <span>No metadata options available.</span>
+                </div>`;
+        }
+
+        // render
+        const long = ["about"];
+        for (const field of Object.entries(metadata)) {
+            const is_long = long.includes(field[0]);
+            bind_to.innerHTML += `<div class="card flex justify-between items-center gap-2" style="flex-wrap: wrap;" id="field:${field[0]}">
+                <label for="field_input:${field[0]}">${field[0]}</label>
+                <${is_long ? "textarea" : "input"} 
+                    id="field_input:${field[0]}" 
+                    type="text" 
+                    value="${field[1].replace('"', '\\"')}"
+                    onchange="trigger('metadata:update_metadata_value', ['${field[0]}', event.target.value])"
+                    style="width: max-content; min-width: 200px; min-height: 32px"
+                    ${field[0] === "secondary_token" ? "disabled" : ""}
+                    class="secondary"
+                    placeholder="${field[0]}"
+                ${is_long ? `>${field[1]}</textarea>` : "/>"}
+            </div>`;
+        }
+
+        // handle submit
+        document
+            .getElementById("metadata_submit_form")
+            .addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const res = await (
+                    await fetch(
+                        "/api/auth/profile/{{ me.username }}/metadata",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                metadata,
+                            }),
+                        },
+                    )
+                ).json();
+
+                alert(`${res.success ? "OK" : "ERR"} ${res.message}`);
+            });
+    });
+
+    metadata.editor(
+        document.getElementById("metadata_editor"),
+        JSON.parse(document.getElementById("my_metadata").innerHTML),
+    );
+</script>
 {% call super() %} {% endblock %}

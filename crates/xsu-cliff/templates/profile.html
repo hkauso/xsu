@@ -1,0 +1,24 @@
+{% extends "base.html" %} {% block title %}{{ profile.username }}{% endblock %}
+{% block content %}
+<article>
+    <fieldset id="info">
+        <legend>{{ profile.username }}</legend>
+
+        <ul>
+            <li>
+                <b>joined:</b>
+                <code class="date">{{ profile.joined }}</code>
+            </li>
+            <li>
+                <b>group id:</b>
+                <code>{{ profile.group }}</code>
+            </li>
+        </ul>
+
+        <fieldset id="about">
+            <legend>About</legend>
+            {{ xsu_util::ui::render_markdown(profile.metadata.about)|safe }}
+        </fieldset>
+    </fieldset>
+</article>
+{% call super() %} {% endblock %}

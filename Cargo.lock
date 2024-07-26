@@ -2948,7 +2948,7 @@ dependencies = [
 
 [[package]]
 name = "xsu-authman"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "axum-extra",
@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "xsu-cliff"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "askama",
  "askama_axum",
@@ -2972,6 +2972,7 @@ dependencies = [
  "clap",
  "reqwest",
  "serde",
+ "serde_json",
  "sproc",
  "sysinfo",
  "tokio",

@@ -19,6 +19,7 @@
         <meta property="og:site_name" content="{{ config.name }}" />
         <meta name="description" content="{{ config.description }}" />
 
+        <!-- shared styles -->
         <style>
             * {
                 box-sizing: border-box;
@@ -215,6 +216,12 @@
                     outline-color 0.15s;
             }
 
+            input.secondary,
+            textarea.secondary,
+            select.secondary {
+                background: var(--color-surface);
+            }
+
             input:focus,
             textarea:focus,
             select:focus {
@@ -227,6 +234,13 @@
             select:invalid {
                 outline: solid 2px #ef4444;
                 outline-offset: 2px;
+            }
+
+            input:disabled,
+            textarea:disabled,
+            select:disabled {
+                opacity: 75%;
+                cursor: not-allowed;
             }
 
             form,
@@ -373,7 +387,7 @@
             nav a.button {
                 border-radius: var(--radius);
                 color: inherit;
-                min-height: max-content;
+                min-height: 24px;
                 height: max-content;
                 background: inherit;
                 outline: solid 1px transparent;
@@ -398,6 +412,25 @@
             nav button.secondary:hover,
             nav a.button.secondary:hover {
                 background: var(--color-super-lowered);
+            }
+
+            nav#folded_nav {
+                padding: 0 0.5rem;
+                margin: 0;
+                display: none;
+                justify-content: flex-end;
+                background: transparent;
+                border: none;
+            }
+
+            nav#folded_nav button,
+            nav#folded_nav a.button {
+                background: var(--color-super-raised);
+                border-radius: var(--radius);
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                padding-top: 0.25rem;
+                padding-bottom: 0.25rem;
             }
 
             @media (prefers-color-scheme: dark) {
@@ -428,6 +461,10 @@
                 justify-content: center;
             }
 
+            .justify-between {
+                justify-content: space-between;
+            }
+
             .items-center {
                 align-items: center;
             }
@@ -440,6 +477,61 @@
                 gap: 0.5rem;
             }
         </style>
+
+        <!-- shared js -->
+        <script src="https://unpkg.com/regns@1.0.0/index.js"></script>
+
+        <script>
+            globalThis._app_base = {
+                ns_store: {},
+            };
+
+            (() => {
+                const app = reg_ns("app");
+
+                app.define("fold_nav", ({ $ }) => {
+                    if (!$.nav_folded) {
+                        for (const nav of Array.from(
+                            document.querySelectorAll("nav"),
+                        )) {
+                            nav.style.display = "none";
+                        }
+
+                        document.getElementById("folded_nav").style.display =
+                            "flex";
+                    } else {
+                        for (const nav of Array.from(
+                            document.querySelectorAll("nav"),
+                        )) {
+                            nav.style.display = "flex";
+                        }
+
+                        document.getElementById("folded_nav").style.display =
+                            "none";
+                    }
+
+                    $.nav_folded = !($.nav_folded || false);
+                });
+
+                app.define("clean_date_codes", ({ $ }) => {
+                    for (const element of Array.from(
+                        document.querySelectorAll(".date"),
+                    )) {
+                        if (isNaN(element.innerText)) {
+                            continue;
+                        }
+
+                        element.innerText = new Date(
+                            parseInt(element.innerText),
+                        ).toLocaleDateString();
+                    }
+                });
+
+                setTimeout(() => {
+                    app.clean_date_codes();
+                }, 50);
+            })();
+        </script>
     </head>
 
     <body>
@@ -455,6 +547,26 @@
                 </a>
                 {% endfor %}
             </div>
+        </nav>
+
+        <nav id="folded_nav">
+            <button onclick="trigger('app:fold_nav')">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    aria-label="Fold-down symbol"
+                    class="icon"
+                >
+                    <path
+                        d="M12 19a.749.749 0 0 1-.53-.22l-3.25-3.25a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215L12 17.19l2.72-2.72a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734l-3.25 3.25A.749.749 0 0 1 12 19Z"
+                    ></path>
+                    <path
+                        d="M12 18a.75.75 0 0 1-.75-.75v-7.5a.75.75 0 0 1 1.5 0v7.5A.75.75 0 0 1 12 18ZM2.75 6a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1A.75.75 0 0 1 2.75 6Zm4 0a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1A.75.75 0 0 1 6.75 6Zm4 0a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75Zm4 0a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75Zm4 0a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75Z"
+                    ></path>
+                </svg>
+            </button>
         </nav>
 
         {% block under_nav %}{% endblock %}

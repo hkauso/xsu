@@ -1,6 +1,8 @@
 //! Responds to API requests
 use crate::database::Database;
-use crate::model::{AuthError, Permission, ProfileCreate, ProfileLogin, SetProfileGroup};
+use crate::model::{
+    AuthError, Permission, ProfileCreate, ProfileLogin, SetProfileGroup, SetProfileMetadata,
+};
 use axum::http::HeaderMap;
 use xsu_dataman::DefaultReturn;
 
@@ -16,6 +18,7 @@ pub fn routes(database: Database) -> Router {
     Router::new()
         // profiles
         .route("/profile/:username/group", post(set_group_request))
+        .route("/profile/:username/metadata", post(update_metdata_request))
         .route("/profile/:username", get(profile_inspect_request))
         // me
         .route("/me", get(me_request))
@@ -295,6 +298,111 @@ pub async fn set_group_request(
         message: "Acceptable".to_string(),
         payload: Some(props.group),
     })
+}
+
+/// Update a user's metadata
+pub async fn update_metdata_request(
+    jar: CookieJar,
+    Path(username): Path<String>,
+    State(database): State<Database>,
+    Json(props): Json<SetProfileMetadata>,
+) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                });
+            }
+        },
+        None => {
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+    };
+
+    // check permission
+    if auth_user.username != username {
+        let group = match database.get_group_by_id(auth_user.group).await {
+            Ok(g) => g,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                })
+            }
+        };
+
+        if !group.permissions.contains(&Permission::Manager) {
+            // we must have the "Manager" permission to edit other users
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+
+        // get other user
+        let other_user = match database.get_profile_by_username(username.clone()).await {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                });
+            }
+        };
+
+        // check permission
+        let group = match database.get_group_by_id(other_user.group).await {
+            Ok(g) => g,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                })
+            }
+        };
+
+        if group.permissions.contains(&Permission::Manager) {
+            // we cannot manager other managers
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+    }
+
+    // return
+    match database
+        .edit_profile_metadata_by_name(username, props.metadata)
+        .await
+    {
+        Ok(_) => Json(DefaultReturn {
+            success: true,
+            message: "Acceptable".to_string(),
+            payload: (),
+        }),
+        Err(e) => Json(DefaultReturn {
+            success: false,
+            message: e.to_string(),
+            payload: (),
+        }),
+    }
 }
 
 // general

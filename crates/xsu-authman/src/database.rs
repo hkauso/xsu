@@ -275,10 +275,7 @@ impl Database {
             .bind::<&String>(&user_id_hashed)
             .bind::<&String>(&username.to_lowercase())
             .bind::<&String>(
-                &serde_json::to_string::<ProfileMetadata>(&ProfileMetadata {
-                    secondary_token: String::new(),
-                })
-                .unwrap(),
+                &serde_json::to_string::<ProfileMetadata>(&ProfileMetadata::default()).unwrap(),
             )
             .bind::<&String>(&timestamp)
             .bind::<&i32>(&0)

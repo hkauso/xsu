@@ -1,7 +1,7 @@
 //! Cliff server
 use askama_axum::Template;
 use axum::extract::Path;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Redirect};
 use axum::routing::{get, get_service};
 use axum::{extract::State, response::Html, Router};
 use axum_extra::extract::CookieJar;
@@ -36,6 +36,14 @@ struct AuthTemplate {
 struct MyAccountTemplate {
     config: RegistryConfiguration,
     me: Profile,
+    my_metadata: String,
+}
+
+#[derive(Template)]
+#[template(path = "profile.html")]
+struct ProfileViewTemplate {
+    config: RegistryConfiguration,
+    profile: Profile,
 }
 
 #[derive(Template)]
@@ -101,7 +109,8 @@ pub async fn auth_request(
                 return Html(
                     MyAccountTemplate {
                         config: registry.0.registry.clone(),
-                        me: ua,
+                        me: ua.clone(),
+                        my_metadata: serde_json::to_string(&ua.metadata).unwrap(),
                     }
                     .render()
                     .unwrap(),
@@ -119,6 +128,26 @@ pub async fn auth_request(
         .render()
         .unwrap(),
     )
+}
+
+/// GET /~:username
+pub async fn profile_view_request(
+    Path(username): Path<String>,
+    State((registry, database)): State<(Registry, AuthDatabase)>,
+) -> impl IntoResponse {
+    match database.get_profile_by_username(username).await {
+        Ok(ua) => {
+            return Html(
+                ProfileViewTemplate {
+                    config: registry.0.registry.clone(),
+                    profile: ua,
+                }
+                .render()
+                .unwrap(),
+            )
+        }
+        Err(e) => return Html(e.to_string()),
+    }
 }
 
 /// GET /doc
@@ -304,6 +333,16 @@ pub fn ds_public(config: ServConf, database: DsDatabase) -> Router {
         .with_state((Registry::new(config.server), database))
 }
 
+/// Redirect /~:username/*path to /doc
+async fn ds_redirect(Path((username, path)): Path<(String, String)>) -> impl IntoResponse {
+    Redirect::to(&format!("/doc/~{username}/{path}"))
+}
+
+/// Redirect /doc/~:username to /~username
+async fn profile_redirect(Path(username): Path<String>) -> impl IntoResponse {
+    Redirect::to(&format!("/~{username}"))
+}
+
 /// Main server process
 #[tokio::main]
 pub async fn main() {
@@ -343,6 +382,9 @@ pub async fn main() {
             sproc::server::registry_public(config.clone(), auth_database.clone()),
         )
         .nest_service("/doc", ds_public(config.clone(), ds_database.clone()))
+        .route("/~:username/*path", get(ds_redirect))
+        .route("/doc/~:username", get(profile_redirect))
+        .route("/~:username", get(profile_view_request))
         // ...
         .nest_service(
             "/static",

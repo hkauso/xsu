@@ -31,6 +31,9 @@ impl Default for Profile {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ProfileMetadata {
+    /// A brief description provided by the user
+    #[serde(default)]
+    pub about: String,
     /// A secondary token that can be used to authenticate as the account
     #[serde(default)]
     pub secondary_token: String,
@@ -39,6 +42,7 @@ pub struct ProfileMetadata {
 impl Default for ProfileMetadata {
     fn default() -> Self {
         Self {
+            about: String::new(),
             secondary_token: String::new(),
         }
     }
@@ -80,6 +84,11 @@ pub struct ProfileCreate {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProfileLogin {
     pub id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SetProfileMetadata {
+    pub metadata: ProfileMetadata,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
