@@ -19,5 +19,5 @@ cd xsu
 git pull
 just build-s xsu-cliff sqlite
 sudo rm /usr/bin/xsu-cliff
-sudo mv target/release/sproc /usr/bin/sproc
+sudo mv target/release/xsu-cliff /usr/bin/xsu-cliff
 ```

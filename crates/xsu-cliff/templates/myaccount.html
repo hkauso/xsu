@@ -65,7 +65,7 @@ endblock %} {% block content %}
                     type="text" 
                     value="${field[1].replace('"', '\\"')}"
                     onchange="trigger('metadata:update_metadata_value', ['${field[0]}', event.target.value])"
-                    style="width: max-content; min-width: 200px; min-height: 32px"
+                    style="width: max-content; min-width: 200px; min-height: 32px; resize: both"
                     ${field[0] === "secondary_token" ? "disabled" : ""}
                     class="secondary"
                     placeholder="${field[0]}"

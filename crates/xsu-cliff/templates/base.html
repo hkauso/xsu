@@ -133,6 +133,12 @@
                 max-width: 100%;
             }
 
+            code:not(pre code) {
+                padding: 0.2rem;
+                border-radius: var(--radius);
+                background: var(--color-lowered);
+            }
+
             p,
             li,
             span,
@@ -433,19 +439,18 @@
                 padding-bottom: 0.25rem;
             }
 
-            @media (prefers-color-scheme: dark) {
-                :root {
-                    --color-surface: hsl(0, 0%, 10%);
-                    --color-lowered: hsl(0, 0%, 20%);
-                    --color-raised: hsl(0, 0%, 8%);
-                    --color-super-lowered: hsl(0, 0%, 25%);
-                    --color-super-raised: hsl(0, 0%, 6%);
-                    --color-text: hsl(0, 0%, 95%);
-                }
+            .dark,
+            .dark * {
+                --color-surface: hsl(0, 0%, 10%);
+                --color-lowered: hsl(0, 0%, 20%);
+                --color-raised: hsl(0, 0%, 8%);
+                --color-super-lowered: hsl(0, 0%, 25%);
+                --color-super-raised: hsl(0, 0%, 6%);
+                --color-text: hsl(0, 0%, 95%);
+            }
 
-                a {
-                    color: #93c5fd;
-                }
+            a:is(.dark *) {
+                color: #93c5fd;
             }
 
             /* utility */
@@ -531,6 +536,26 @@
                     app.clean_date_codes();
                 }, 50);
             })();
+        </script>
+
+        <script>
+            if (
+                window.matchMedia("(prefers-color-scheme: dark)").matches &&
+                !window.localStorage.getItem("theme")
+            ) {
+                document.documentElement.classList.add("dark");
+                // window.localStorage.setItem("theme", "dark");
+            } else if (
+                window.matchMedia("(prefers-color-scheme: light)").matches &&
+                !window.localStorage.getItem("theme")
+            ) {
+                document.documentElement.classList.remove("dark");
+                // window.localStorage.setItem("theme", "light");
+            } else if (window.localStorage.getItem("theme")) {
+                /* restore theme */
+                const current = window.localStorage.getItem("theme");
+                document.documentElement.className = current;
+            }
         </script>
     </head>
 
