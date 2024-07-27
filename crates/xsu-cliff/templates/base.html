@@ -84,7 +84,7 @@
             menu {
                 list-style: inside;
                 margin: 0 0 1rem 0;
-                padding: 0 0 0 40px;
+                padding: 0 0 0 20px;
             }
 
             hr {
@@ -539,6 +539,33 @@
             .markdown-alert-caution:is(.dark *) {
                 background-color: rgb(248 113 113 / 0.15);
                 color: rgb(254 202 202 / 0.75);
+            }
+
+            .footnote-definition {
+                display: flex;
+                gap: 0.5rem;
+                opacity: 75%;
+                padding: 0.25rem;
+                border-radius: var(--radius);
+                margin-bottom: 0.25rem;
+            }
+
+            .footnote-definition:target {
+                outline: solid 2px var(--color-primary);
+                outline-offset: 2px;
+                background: var(--color-raised);
+            }
+
+            .footnote-definition p {
+                margin: 0;
+            }
+
+            .footnote-definition:hover {
+                background: var(--color-raised);
+            }
+
+            .footnote-definition .footnote-definition-label {
+                font-weight: bold;
             }
 
             /* utility */
