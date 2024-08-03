@@ -1,6 +1,6 @@
 [package]
 name = "xsu-authman"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Authentication manager"
 authors = ["hkau"]
@@ -21,9 +21,11 @@ serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
 xsu-dataman = { path = "../xsu-dataman", default-features = false }
+xsu-util = { path = "../xsu-util" }
 dotenv = "0.15.0"
 axum-extra = { version = "0.9.3", features = ["cookie"] }
 regex = "1.10.5"
+reqwest = "0.12.5"
 
 [[bin]]
 path = "src/main.rs"

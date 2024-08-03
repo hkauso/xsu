@@ -4,6 +4,7 @@ head %}
 {% endblock %} {% block under_nav %}
 <nav id="page_actions" style="top: 34px">
     <div class="footernav">
+        {% if !iframe %}
         <div class="item">
             <div class="flex gap-1">
                 <a
@@ -21,6 +22,19 @@ head %}
                 </a>
             </div>
         </div>
+        {% else %}
+        <code>{{ doc.owner }}/{{ doc.path }}</code>
+        <script>
+            document.querySelector("nav").remove(); // remove first nav
+            document.querySelector("nav:nth-child(2)").style.top = "0px"; // move this nav up
+            document.querySelector("nav:nth-child(2)").style.marginBottom = "0";
+
+            for (const anchor in Array.from(document.querySelectorAll("a"))) {
+                // make all anchors open a new tab
+                anchor.setAttribute("target", "_blank");
+            }
+        </script>
+        {% endif %}
     </div>
 
     <button
@@ -46,6 +60,7 @@ head %}
 </nav>
 {% endblock %} {% block content %}
 <article class="flex flex-col gap-2">
+    {% if !iframe %}
     <fieldset>
         <legend>{{ doc.path }}</legend>
         <section id="doc">
@@ -91,6 +106,11 @@ head %}
             </div>
         </div>
     </div>
+    {% else %}
+    <section id="doc">
+        {{ xsu_util::ui::render_markdown(doc.content)|safe }}
+    </section>
+    {% endif %}
 </article>
 
 <style>

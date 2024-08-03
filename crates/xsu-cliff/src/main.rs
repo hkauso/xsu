@@ -1,6 +1,7 @@
 //! Cliff server
 use askama_axum::Template;
 use axum::extract::Path;
+use axum::http::{HeaderMap, HeaderValue};
 use axum::response::{IntoResponse, Redirect};
 use axum::routing::{get, get_service};
 use axum::{extract::State, response::Html, Router};
@@ -44,6 +45,7 @@ struct MyAccountTemplate {
 struct ProfileViewTemplate {
     config: RegistryConfiguration,
     profile: Profile,
+    custom: String,
 }
 
 #[derive(Template)]
@@ -58,6 +60,7 @@ struct DocshareListingTemplate {
 #[template(path = "ds_view.html")]
 struct DocshareViewTemplate {
     config: RegistryConfiguration,
+    iframe: bool,
     doc: xsu_docshare::model::Document,
 }
 
@@ -140,6 +143,7 @@ pub async fn profile_view_request(
             return Html(
                 ProfileViewTemplate {
                     config: registry.0.registry.clone(),
+                    custom: xsu_util::ui::render_blocklist(ua.metadata.definition.clone()),
                     profile: ua,
                 }
                 .render()
@@ -218,6 +222,7 @@ pub async fn docshare_index_request(
 
 /// GET /doc/~:owner/*path
 pub async fn docshare_view_request(
+    headers: HeaderMap,
     Path((owner, path)): Path<(String, String)>,
     State((registry, database)): State<(Registry, DsDatabase)>,
 ) -> impl IntoResponse {
@@ -239,6 +244,10 @@ pub async fn docshare_view_request(
     Html(
         DocshareViewTemplate {
             config: registry.0.registry,
+            iframe: headers
+                .get("Sec-Fetch-Dest")
+                .unwrap_or(&HeaderValue::from_str("").unwrap())
+                == HeaderValue::from_str("iframe").unwrap(),
             doc,
         }
         .render()

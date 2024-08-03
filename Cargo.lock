@@ -3136,10 +3136,12 @@ dependencies = [
  "axum-macros",
  "dotenv",
  "regex",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",
  "xsu-dataman",
+ "xsu-util",
 ]
 
 [[package]]
@@ -3210,11 +3212,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "xsu-slime"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "tokio",
+ "toml",
+ "xsu-util",
+]
+
+[[package]]
 name = "xsu-util"
 version = "0.1.0"
 dependencies = [
  "ammonia",
  "pulldown-cmark",
+ "serde",
 ]
 
 [[package]]

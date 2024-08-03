@@ -5,6 +5,7 @@ use axum::{
 };
 
 use xsu_dataman::DefaultReturn;
+use xsu_util::ui::BlockList;
 use serde::{Deserialize, Serialize};
 
 /// Basic user structure
@@ -31,19 +32,23 @@ impl Default for Profile {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ProfileMetadata {
-    /// A brief description provided by the user
-    #[serde(default)]
-    pub about: String,
     /// A secondary token that can be used to authenticate as the account
     #[serde(default)]
     pub secondary_token: String,
+    /// A URL which dictates where the user's profile avatar is loaded from, `xsu-cliff` proxies this link and returns the user avatar
+    #[serde(default)]
+    pub avatar_url: String,
+    /// The user profile's [`BlockList`]
+    #[serde(default)]
+    pub definition: BlockList,
 }
 
 impl Default for ProfileMetadata {
     fn default() -> Self {
         Self {
-            about: String::new(),
             secondary_token: String::new(),
+            avatar_url: String::new(),
+            definition: BlockList::default(),
         }
     }
 }

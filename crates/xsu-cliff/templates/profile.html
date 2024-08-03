@@ -1,8 +1,20 @@
 {% extends "base.html" %} {% block title %}{{ profile.username }}{% endblock %}
 {% block content %}
 <article>
+    <section id="id" class="flex gap-2 items-center">
+        <img
+            alt="{{ profile.username }}'s avatar"
+            src="/api/auth/profile/{{ profile.username }}/avatar"
+            class="avatar"
+            style="--size: 60px"
+        />
+
+        <h2 class="no-margin">{{ profile.username }}</h2>
+    </section>
+
+    <hr />
     <fieldset id="info">
-        <legend>{{ profile.username }}</legend>
+        <legend>Info</legend>
 
         <ul>
             <li>
@@ -14,11 +26,9 @@
                 <code>{{ profile.group }}</code>
             </li>
         </ul>
-
-        <fieldset id="about">
-            <legend>About</legend>
-            {{ xsu_util::ui::render_markdown(profile.metadata.about)|safe }}
-        </fieldset>
     </fieldset>
+
+    <hr />
+    {{ custom|safe }}
 </article>
 {% call super() %} {% endblock %}

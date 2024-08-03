@@ -1,6 +1,7 @@
 use crate::model::Group;
 use crate::model::{Profile, ProfileMetadata, AuthError};
 
+use reqwest::Client as HttpClient;
 use xsu_dataman::query as sqlquery;
 use xsu_dataman::utility;
 
@@ -27,6 +28,7 @@ impl Default for ServerOptions {
 pub struct Database {
     pub base: xsu_dataman::StarterDatabase,
     pub config: ServerOptions,
+    pub http: HttpClient,
 }
 
 impl Database {
@@ -40,6 +42,7 @@ impl Database {
         Self {
             base: base.clone(),
             config: server_options,
+            http: HttpClient::new(),
         }
     }
 

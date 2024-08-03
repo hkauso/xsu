@@ -3,6 +3,7 @@ use crate::database::Database;
 use crate::model::{
     AuthError, Permission, ProfileCreate, ProfileLogin, SetProfileGroup, SetProfileMetadata,
 };
+use axum::body::Bytes;
 use axum::http::HeaderMap;
 use xsu_dataman::DefaultReturn;
 
@@ -19,6 +20,7 @@ pub fn routes(database: Database) -> Router {
         // profiles
         .route("/profile/:username/group", post(set_group_request))
         .route("/profile/:username/metadata", post(update_metdata_request))
+        .route("/profile/:username/avatar", get(profile_avatar_request))
         .route("/profile/:username", get(profile_inspect_request))
         // me
         .route("/me", get(me_request))
@@ -163,6 +165,35 @@ pub async fn me_request(jar: CookieJar, State(database): State<Database>) -> imp
         message: auth_user.username,
         payload: (),
     })
+}
+
+/// Get a profile's avatar image
+pub async fn profile_avatar_request(
+    Path(username): Path<String>,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    // get user
+    let auth_user = match database.get_profile_by_username(username).await {
+        Ok(ua) => ua,
+        Err(_) => {
+            return Bytes::from_static(&[0x0u8]);
+        }
+    };
+
+    // get profile image
+    if auth_user.metadata.avatar_url.is_empty() {
+        return Bytes::from_static(&[0]);
+    }
+
+    match database
+        .http
+        .get(auth_user.metadata.avatar_url)
+        .send()
+        .await
+    {
+        Ok(r) => r.bytes().await.unwrap(),
+        Err(_) => Bytes::from_static(&[0x0u8]),
+    }
 }
 
 /// View a profile's information

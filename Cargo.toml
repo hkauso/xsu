@@ -9,4 +9,4 @@ members = [
     "crates/xsu-docshare",
     "crates/xsu-dataman",
     "crates/xsu-cliff"
-]
+, "crates/xsu-slime"]

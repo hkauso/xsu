@@ -17,6 +17,10 @@ build-s-d package="sproc" database="sqlite":
 run-s package="xsu-cliff" database="sqlite":
     cargo run --package {{package}} --no-default-features --features {{database}}
 
+# run binary
+run-b package:
+    cargo run --package {{package}}
+
 # ...
 doc:
     cargo doc --no-deps --document-private-items

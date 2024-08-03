@@ -1,6 +1,6 @@
 [package]
 name = "xsu-util"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["hkau"]
 description = "Basic utilities"
@@ -11,6 +11,7 @@ license = "MIT"
 [dependencies]
 ammonia = "4.0.0"
 pulldown-cmark = "0.11.0"
+serde = { version = "1.0.204", features = ["derive"] }
 
 [lib]
 doctest = false

@@ -1,0 +1,24 @@
+[package]
+name = "xsu-slime"
+version = "0.1.0"
+edition = "2021"
+authors = ["hkau"]
+description = "Markdown manager"
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.5.9", features = ["derive"] }
+tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1.0.203", features = ["derive"] }
+toml = "0.8.14"
+xsu-util = { path = "../xsu-util" }
+
+[[bin]]
+path = "src/main.rs"
+name = "sl"
+test = false
+
+[lib]
+doctest = false

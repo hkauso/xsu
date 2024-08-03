@@ -43,20 +43,29 @@ endblock %} {% block content %}
     const metadata = reg_ns("metadata");
 
     metadata.define("editor", function ({ $ }, bind_to, metadata) {
+        const objects = ["definition"];
         $.update_metadata_value = (name, value) => {
+            if (objects.includes(name)) {
+                value = JSON.parse(value);
+            }
+
             metadata[name] = value;
         };
 
         // ...
         if (Object.entries(metadata).length == 0) {
             bind_to.innerHTML = `<div class="card secondary round">
-                    <span>No metadata options available.</span>
-                </div>`;
+                <span>No metadata options available.</span>
+            </div>`;
         }
 
         // render
-        const long = ["about"];
+        const long = ["about", "definition"];
         for (const field of Object.entries(metadata)) {
+            if (typeof field[1] === "object") {
+                field[1] = JSON.stringify(field[1], null, 2);
+            }
+
             const is_long = long.includes(field[0]);
             bind_to.innerHTML += `<div class="card flex justify-between items-center gap-2" style="flex-wrap: wrap;" id="field:${field[0]}">
                 <label for="field_input:${field[0]}">${field[0]}</label>

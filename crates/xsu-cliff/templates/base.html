@@ -442,6 +442,7 @@
                 justify-content: flex-end;
                 background: transparent;
                 border: none;
+                position: fixed;
             }
 
             nav#folded_nav button,
@@ -569,8 +570,22 @@
             }
 
             img {
+                display: inline;
                 max-width: 100%;
-                vertical-align: center;
+                vertical-align: middle;
+            }
+
+            .avatar {
+                --size: 50px;
+                border-radius: var(--radius);
+                width: var(--size);
+                height: var(--size);
+                object-fit: cover;
+            }
+
+            iframe:hover {
+                outline: solid 2px var(--color-super-lowered);
+                border-radius: var(--radius);
             }
 
             /* utility */
@@ -652,9 +667,39 @@
                     }
                 });
 
-                setTimeout(() => {
-                    app.clean_date_codes();
-                }, 50);
+                app.define("correct_avatars", (_) => {
+                    for (const avatar of Array.from(
+                        document.querySelectorAll(".avatar"),
+                    )) {
+                        if (avatar.complete) {
+                            // image already loaded
+                            if (avatar.naturalWidth !== 0) continue; // 0 means either the image is empty OR failed to load
+                            avatar.remove();
+                        } else {
+                            // image loading
+                            avatar.addEventListener("error", () => {
+                                avatar.remove();
+                            });
+                        }
+                    }
+                });
+
+                app.define("possess_iframe", (_, iframe) => {
+                    iframe.style.height = `${
+                        iframe.contentWindow.document.body.scrollHeight
+                    }px`;
+
+                    // update height
+                    new ResizeObserver((_) => {
+                        iframe.style.height = `${iframe.contentWindow.document.body.scrollHeight}px`;
+                    }).observe(iframe.contentWindow.document.body);
+
+                    // keep same location
+                    iframe.contentWindow.addEventListener("unload", () => {
+                        alert("ERR This location is not allowed");
+                        window.location.reload();
+                    });
+                });
             })();
         </script>
 
@@ -719,5 +764,13 @@
         <main>
             <div id="page">{% block content %}{% endblock %}</div>
         </main>
+
+        <script>
+            (() => {
+                const app = ns("app");
+                app.clean_date_codes();
+                app.correct_avatars();
+            })();
+        </script>
     </body>
 </html>
