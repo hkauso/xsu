@@ -1,0 +1,28 @@
+[package]
+name = "xsu-lily"
+version = "0.1.0"
+edition = "2021"
+authors = ["hkau"]
+description = "Lily version management"
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+[dependencies]
+xsu-util = { path = "../xsu-util" }
+xsu-dataman = { path = "../xsu-dataman", features = ["sqlite"] }
+serde = { version = "1.0.204", features = ["derive"] }
+similar = { version = "2.6.0", features = ["text"] }
+serde_json = "1.0.122"
+toml = "0.8.19"
+tar = "0.4.41"
+flate2 = "1.0.31"
+tokio = { version = "1.39.2", features = ["macros", "rt-multi-thread"] }
+
+[[bin]]
+path = "src/main.rs"
+name = "ly"
+test = false
+
+[lib]
+doctest = false

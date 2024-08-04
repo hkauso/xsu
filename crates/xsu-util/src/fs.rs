@@ -5,14 +5,14 @@ use std::path::Path;
 pub use std::{
     fs::{
         create_dir, read_dir, read_to_string, remove_dir_all, remove_file, write as std_write,
-        canonicalize, metadata, Metadata,
+        read as std_read, canonicalize, metadata, Metadata,
     },
     io::Result,
 };
 
 /// Get a path's metadata
 ///
-/// ## Arguments:
+/// # Arguments
 /// * `path`
 pub fn fstat<P>(path: P) -> Result<Metadata>
 where
@@ -23,7 +23,7 @@ where
 
 /// Create a directory if it does not already exist
 ///
-/// ## Arguments:
+/// # Arguments
 /// * `path`
 pub fn mkdir<P>(path: P) -> Result<()>
 where
@@ -38,7 +38,7 @@ where
 
 /// `rm -r` for only directories
 ///
-/// ## Arguments:
+/// # Arguments
 /// * `path`
 pub fn rmdirr<P: AsRef<Path>>(path: P) -> Result<()>
 where
@@ -49,7 +49,7 @@ where
 
 /// `rm` for only files
 ///
-/// ## Arguments:
+/// # Arguments
 /// * `path`
 pub fn rm<P: AsRef<Path>>(path: P) -> Result<()>
 where
@@ -58,9 +58,9 @@ where
     remove_file(path)
 }
 
-/// `rm -r` for only directories
+/// Write to a file given its path and data
 ///
-/// ## Arguments:
+/// # Arguments
 /// * `path`
 /// * `data`
 pub fn write<P, D>(path: P, data: D) -> Result<()>
@@ -71,12 +71,38 @@ where
     std_write(path, data)
 }
 
+/// `touch`
+///
+/// # Arguments
+/// * `path`
+pub fn touch<P>(path: P) -> Result<()>
+where
+    P: AsRef<Path>,
+{
+    std_write(path, "")
+}
+
+/// Append to a file given its path and data
+///
+/// # Arguments
+/// * `path`
+/// * `data`
+pub fn append<P, D>(path: P, data: D) -> Result<()>
+where
+    P: AsRef<Path>,
+    D: AsRef<[u8]>,
+{
+    let mut bytes = std_read(&path)?; // read current data as bytes
+    bytes = [&bytes, data.as_ref()].concat(); // append
+    std_write(path, bytes) // write
+}
+
 /// `cat`
 ///
-/// ## Arguments:
+/// # Arguments
 /// * `path`
 ///
-/// ## Returns:
+/// # Returns
 /// * [`String`]
 pub fn read<P: AsRef<Path>>(path: P) -> Result<String>
 where

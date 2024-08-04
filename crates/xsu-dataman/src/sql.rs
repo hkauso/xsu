@@ -12,7 +12,12 @@ pub struct DatabaseOpts {
     /// The database user's password
     pub pass: String,
     /// The name of the database
+    #[serde(default = "default_database_name")]
     pub name: String,
+}
+
+fn default_database_name() -> String {
+    "main".to_string()
 }
 
 impl Default for DatabaseOpts {
@@ -22,7 +27,7 @@ impl Default for DatabaseOpts {
             host: None,
             user: String::new(),
             pass: String::new(),
-            name: String::new(),
+            name: default_database_name(),
         }
     }
 }
@@ -103,9 +108,9 @@ pub async fn create_db(options: DatabaseOpts) -> Database<sqlx::PgPool> {
 
 #[cfg(feature = "sqlite")]
 /// Create a new "sqlite" database (named "main.db")
-pub async fn create_db(_options: DatabaseOpts) -> Database<sqlx::SqlitePool> {
+pub async fn create_db(options: DatabaseOpts) -> Database<sqlx::SqlitePool> {
     // sqlite
-    let client = sqlx::SqlitePool::connect(&format!("sqlite://main.db")).await;
+    let client = sqlx::SqlitePool::connect(&format!("sqlite://{}.db", options.name)).await;
 
     if client.is_err() {
         panic!("Failed to connect to database!");
