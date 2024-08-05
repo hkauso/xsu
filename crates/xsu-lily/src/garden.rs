@@ -32,6 +32,12 @@ pub type Change = (usize, ChangeMode, String);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatchFile(String, Vec<Change>);
 
+impl Default for PatchFile {
+    fn default() -> Self {
+        Self(String::new(), Vec::new())
+    }
+}
+
 impl PatchFile {
     /// Get a summary of the changes in this [`PatchFile`]
     ///
@@ -201,6 +207,21 @@ pub struct Commit {
     pub message: String,
     /// A description of the changes done to the garden state
     pub content: Patch,
+}
+
+impl Default for Commit {
+    fn default() -> Self {
+        Self {
+            id: utility::random_id(),
+            branch: utility::random_id(),
+            timestamp: utility::unix_epoch_timestamp(),
+            author: "system@localhost".to_string(),
+            message: "Filler commit".to_string(),
+            content: Patch {
+                files: HashMap::new(),
+            },
+        }
+    }
 }
 
 /// Information about a [`Garden`]'s branches
@@ -423,6 +444,37 @@ impl Garden {
         })
     }
 
+    /// Get a the latest existing [`Commit`]
+    pub async fn get_latest_commit(&self) -> Result<Commit> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"commits\" ORDER BY \"timestamp\" DESC LIMIT 1"
+        } else {
+            "SELECT * FROM \"commits\" ORDER BY \"timestamp\" DESC LIMIT 1"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).fetch_one(c).await {
+            Ok(p) => self.base.textify_row(p).0,
+            Err(_) => return Err(LilyError::Other),
+        };
+
+        // return
+        Ok(Commit {
+            id: res.get("id").unwrap().to_string(),
+            branch: res.get("branch").unwrap().to_string(),
+            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+            author: res.get("author").unwrap().to_string(),
+            message: res.get("message").unwrap().to_string(),
+            content: match serde_json::from_str(res.get("content").unwrap()) {
+                Ok(m) => m,
+                Err(_) => return Err(LilyError::ValueError),
+            },
+        })
+    }
+
     // SET
     /// Create a new [`Commit`]
     ///
@@ -446,12 +498,20 @@ impl Garden {
             Err(_) => return Err(LilyError::Other),
         };
 
-        // let previous_commit = Pack::from_hash()
-
+        let latest_commit = self.get_latest_commit().await.unwrap_or_default();
         for file in &files {
             // generate file patch
-            // TODO: get previous version of file from previous commit
-            let file_patch = Patch::from_file(file.clone(), String::new(), fs::read(file).unwrap());
+            let previous = latest_commit.content.files.get(file.as_str());
+            let previous = match previous {
+                Some(previous) => previous,
+                None => &PatchFile::default(),
+            };
+
+            let file_patch = Patch::from_file(
+                file.clone(),
+                previous.1.get(previous.1.len() - 1).unwrap().2.clone(),
+                fs::read(file).unwrap(),
+            );
 
             for file in file_patch.files {
                 patch.files.insert(file.0, file.1);
