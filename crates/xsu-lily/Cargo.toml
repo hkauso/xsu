@@ -20,6 +20,7 @@ flate2 = "1.0.31"
 tokio = { version = "1.39.2", features = ["macros", "rt-multi-thread"] }
 globset = "0.4.14"
 walkdir = "2.5.0"
+clap = { version = "4.5.9", features = ["derive"] }
 
 [[bin]]
 path = "src/main.rs"

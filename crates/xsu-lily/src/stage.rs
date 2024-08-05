@@ -25,6 +25,10 @@ impl Stage {
                 let mut out = Vec::new();
 
                 for slice in r.split("\n") {
+                    if slice.is_empty() {
+                        continue;
+                    }
+
                     out.push(slice.to_string())
                 }
 
@@ -63,6 +67,10 @@ impl Stage {
             match entry {
                 Ok(p) => {
                     let path = p.path().to_str().unwrap().replace("./", "");
+
+                    if path.is_empty() {
+                        continue;
+                    }
 
                     if p.metadata().unwrap().is_dir() {
                         // we cannot do anything with directories

@@ -11,6 +11,8 @@ Modern but familiar system utilities!
 * (L, B) `xsu-open` - opens files using their default that was set with `xsu-appman`
 * (L, B) `xsu-authman` - authentication manager
 * (L, B) `xsu-docshare` - markdown document manager
+* (L, B) `xsu-slime` - terminal Markdown renderer
+* (L, B) `xsu-lily` - source version control management
 * (L) `xsu-util` - basic shared utilities for xsu-* applications
 * (L) `xsu-dataman` - database connection manager
 * (B) `xsu-cliff` - "homepage" http server for serving sproc daemon, docshare server, authman ui, etc

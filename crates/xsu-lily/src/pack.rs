@@ -18,6 +18,10 @@ impl Pack {
         let mut archive = Builder::new(enc);
 
         for file in files {
+            if file.is_empty() {
+                continue;
+            }
+
             let stat = fstat(&file).unwrap();
 
             if stat.is_dir() {

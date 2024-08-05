@@ -113,7 +113,7 @@ impl Patch {
             let header = format!(
                 // patch header
                 "\x1b[1m{}:\n{}\n\x1b[0m",
-                file.0, "────╮"
+                file.0, "───────────╮"
             );
 
             let mut out = String::new();
@@ -126,13 +126,22 @@ impl Patch {
                     .clone()
                     .find(|c| (c.0 == i) && (c.1 == ChangeMode::Deleted))
                 {
-                    out.push_str(&format!("\x1b[2m{}\x1b[0m \x1b[91m- │ {line}\n", i + 1));
+                    out.push_str(&format!(
+                        "\x1b[2m{}{}\x1b[0m \x1b[91m- │ {line}\n",
+                        i + 1,
+                        " ".repeat(8 - i.to_string().len())
+                    ));
+
                     consumed.push(change);
                     continue; // this line was deleted so we shouldn't render the normal line
                 }
 
                 // push normal line
-                out.push_str(&format!("\x1b[2m{} = │ {line}\n", i + 1));
+                out.push_str(&format!(
+                    "\x1b[2m{}{} = │ {line}\n",
+                    i + 1,
+                    " ".repeat(8 - i.to_string().len())
+                ));
             }
 
             // add new lines
@@ -154,8 +163,9 @@ impl Patch {
                     // we're adding 1 to the position so that it is rendered after the removal
                     change.0 + 1,
                     format!(
-                        "\x1b[2m{}\x1b[0m \x1b[92m+ │ {}",
+                        "\x1b[2m{}{}\x1b[0m \x1b[92m+ │ {}",
                         change.0 + 1,
+                        " ".repeat(8 - change.0.to_string().len()),
                         change.2.replace("\n", "")
                     ),
                 );
@@ -165,7 +175,7 @@ impl Patch {
             let summary = file.1.summary();
 
             let mut footer = "\x1b[1m".to_string();
-            footer.push_str("────╯");
+            footer.push_str("───────────╯");
             footer.push_str(&format!(
                 "\x1b[0m\n{} total changes \u{2022} \x1b[92m{} additions\x1b[0m \u{2022} \x1b[91m{} deletions\x1b[0m",
                 summary.0, // total
@@ -500,6 +510,10 @@ impl Garden {
 
         let latest_commit = self.get_latest_commit().await.unwrap_or_default();
         for file in &files {
+            if file.is_empty() {
+                continue;
+            }
+
             // generate file patch
             let previous = latest_commit.content.files.get(file.as_str());
             let previous = match previous {
@@ -509,7 +523,16 @@ impl Garden {
 
             let file_patch = Patch::from_file(
                 file.clone(),
-                previous.1.get(previous.1.len() - 1).unwrap().2.clone(),
+                previous
+                    .1
+                    .get(if previous.1.len() > 0 {
+                        previous.1.len() - 1
+                    } else {
+                        0
+                    })
+                    .unwrap_or(&(0, ChangeMode::Added, String::new()))
+                    .2
+                    .clone(),
                 fs::read(file).unwrap(),
             );
 

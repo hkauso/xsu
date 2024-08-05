@@ -76,7 +76,7 @@ impl Config {
 
             // create .config/xsu-apps/slime
             fs::mkdir(format!("{home}/.config/xsu-apps/slime"))
-                .expect("failed to create appman directory")
+                .expect("failed to create application directory")
         }
 
         match fs::read(format!("{home}/.config/xsu-apps/slime/config.toml")) {
