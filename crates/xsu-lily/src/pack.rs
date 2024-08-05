@@ -3,7 +3,7 @@ use xsu_util::fs::fstat;
 
 use tar::{Builder, Archive};
 use flate2::Compression;
-use flate2::write::GzEncoder;
+use flate2::{read::GzDecoder, write::GzEncoder};
 
 /// A pack is a `.tar.gz` file of the entire working tree at the point of a commit
 pub struct Pack(pub String);
@@ -39,7 +39,10 @@ impl Pack {
 
     /// Read a [`Pack`] from its hash
     pub fn from_hash(hash: String) -> HashMap<String, String> {
-        let mut archive = Archive::new(File::open(format!(".garden/objects/{hash}")).unwrap());
+        let mut archive = Archive::new(GzDecoder::new(
+            File::open(format!(".garden/objects/{hash}")).unwrap(),
+        ));
+
         let mut out = HashMap::new();
 
         for file in archive.entries().unwrap() {
@@ -55,5 +58,20 @@ impl Pack {
         }
 
         out
+    }
+
+    /// Pack a single input [`String`]
+    pub fn from_string(input: String) -> Vec<u8> {
+        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(input.as_bytes()).unwrap();
+        enc.finish().unwrap()
+    }
+
+    /// Decode a [`Vec<u8>`] into a [`String`]
+    pub fn decode_vec(input: Vec<u8>) -> String {
+        let mut dec = GzDecoder::new(&input[..]);
+        let mut string = String::new();
+        dec.read_to_string(&mut string).unwrap();
+        string
     }
 }

@@ -109,7 +109,7 @@ impl Database {
 
         let c = &self.base.db.client;
         let row = match sqlquery(query).bind::<&String>(&hashed).fetch_one(c).await {
-            Ok(u) => self.base.textify_row(u).0,
+            Ok(u) => self.base.textify_row(u, Vec::new()).0,
             Err(_) => return Err(AuthError::Other),
         };
 
@@ -161,7 +161,7 @@ impl Database {
             .fetch_one(c)
             .await
         {
-            Ok(r) => self.base.textify_row(r).0,
+            Ok(r) => self.base.textify_row(r, Vec::new()).0,
             Err(_) => return Err(AuthError::Other),
         };
 
@@ -209,7 +209,7 @@ impl Database {
             .fetch_one(c)
             .await
         {
-            Ok(r) => self.base.textify_row(r).0,
+            Ok(r) => self.base.textify_row(r, Vec::new()).0,
             Err(_) => return Err(AuthError::NotFound),
         };
 
@@ -387,7 +387,7 @@ impl Database {
 
         let c = &self.base.db.client;
         let row = match sqlquery(query).bind::<&i32>(&id).fetch_one(c).await {
-            Ok(r) => self.base.textify_row(r).0,
+            Ok(r) => self.base.textify_row(r, Vec::new()).0,
             Err(_) => return Ok(Group::default()),
         };
 

@@ -115,7 +115,7 @@ impl Database {
             .fetch_one(c)
             .await
         {
-            Ok(p) => self.base.textify_row(p).0,
+            Ok(p) => self.base.textify_row(p, Vec::new()).0,
             Err(_) => return Err(DatabaseError::NotFound),
         };
 
@@ -169,7 +169,7 @@ impl Database {
                 let mut out: Vec<Document> = Vec::new();
 
                 for row in p {
-                    let res = self.base.textify_row(row).0;
+                    let res = self.base.textify_row(row, Vec::new()).0;
                     out.push(Document {
                         path: res.get("path").unwrap().to_string(),
                         owner: res.get("owner").unwrap().to_string(),

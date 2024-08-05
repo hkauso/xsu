@@ -2,8 +2,9 @@
 use crate::model::LilyError;
 use crate::pack::Pack;
 use crate::stage::Stage;
+use crate::patch::{ChangeMode, PatchFile, Patch};
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 
 use xsu_util::fs;
@@ -12,186 +13,6 @@ use xsu_dataman::query as sqlquery;
 use xsu_dataman::utility;
 
 pub type Result<T> = std::result::Result<T, LilyError>;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ChangeMode {
-    /// Something was added
-    Added,
-    /// Something was deleted
-    Deleted,
-}
-
-/// A single change to a file
-///
-/// ```
-/// (line number, mode, line)
-/// ```
-pub type Change = (usize, ChangeMode, String);
-
-/// A file inside of a [`Patch`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PatchFile(String, Vec<Change>);
-
-impl Default for PatchFile {
-    fn default() -> Self {
-        Self(String::new(), Vec::new())
-    }
-}
-
-impl PatchFile {
-    /// Get a summary of the changes in this [`PatchFile`]
-    ///
-    /// # Returns
-    /// `(total changes, additions, deletions)`
-    pub fn summary(&self) -> (usize, usize, usize) {
-        let mut additions = 0;
-        let mut deletions = 0;
-
-        for change in &self.1 {
-            match change.1 {
-                ChangeMode::Added => additions += 1,
-                ChangeMode::Deleted => deletions += 1,
-            }
-        }
-
-        (self.1.len(), additions, deletions)
-    }
-}
-
-/// A list of changes to many files (paths are relative to the working tree)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Patch {
-    /// A list of files and their changes
-    /// 0: old file source
-    /// 1: changes
-    pub files: HashMap<String, PatchFile>,
-}
-
-impl Patch {
-    /// Create a [`Patch`] using the diff of two strings
-    pub fn from_file(path: String, old: String, new: String) -> Patch {
-        use similar::{ChangeTag, TextDiff};
-
-        // create diff
-        let diff = TextDiff::from_lines(&old, &new);
-
-        // create patch
-        let mut out = Patch {
-            files: HashMap::new(),
-        };
-
-        out.files
-            .insert(path.clone(), PatchFile(old.clone(), Vec::new()));
-
-        let this = out.files.get_mut(&path).unwrap();
-
-        for change in diff.iter_all_changes() {
-            let mode = match change.tag() {
-                ChangeTag::Insert => ChangeMode::Added,
-                ChangeTag::Delete => ChangeMode::Deleted,
-                ChangeTag::Equal => continue, // we don't store these, we only care about actual changes
-            };
-
-            this.1.push((
-                change
-                    .old_index()
-                    .unwrap_or(change.new_index().unwrap_or(0)),
-                mode,
-                change.value().to_string(),
-            ))
-        }
-
-        // return
-        out
-    }
-
-    /// Render the patch into an array of strings
-    pub fn render(&self) -> Vec<String> {
-        let mut patches = Vec::new();
-
-        for file in &self.files {
-            let header = format!(
-                // patch header
-                "\x1b[1m{}:\n{}\n\x1b[0m",
-                file.0, "───────────╮"
-            );
-
-            let mut out = String::new();
-
-            let changes_iter = file.1 .1.iter();
-            let mut consumed = Vec::new();
-            for (i, line) in file.1 .0.split("\n").enumerate() {
-                // check if the line was deleted
-                if let Some(change) = changes_iter
-                    .clone()
-                    .find(|c| (c.0 == i) && (c.1 == ChangeMode::Deleted))
-                {
-                    out.push_str(&format!(
-                        "\x1b[2m{}{}\x1b[0m \x1b[91m- │ {line}\n",
-                        i + 1,
-                        " ".repeat(8 - i.to_string().len())
-                    ));
-
-                    consumed.push(change);
-                    continue; // this line was deleted so we shouldn't render the normal line
-                }
-
-                // push normal line
-                out.push_str(&format!(
-                    "\x1b[2m{}{} = │ {line}\n",
-                    i + 1,
-                    " ".repeat(8 - i.to_string().len())
-                ));
-            }
-
-            // add new lines
-            let mut lines: Vec<String> = Vec::new();
-
-            for r#ref in out.split("\n") {
-                // own split
-                lines.push(r#ref.to_owned())
-            }
-
-            for change in changes_iter {
-                if consumed.contains(&change) {
-                    // don't process changes we've already consumed
-                    // these should only be deletions
-                    continue;
-                }
-
-                lines.insert(
-                    // we're adding 1 to the position so that it is rendered after the removal
-                    change.0 + 1,
-                    format!(
-                        "\x1b[2m{}{}\x1b[0m \x1b[92m+ │ {}",
-                        change.0 + 1,
-                        " ".repeat(8 - change.0.to_string().len()),
-                        change.2.replace("\n", "")
-                    ),
-                );
-            }
-
-            // create footer
-            let summary = file.1.summary();
-
-            let mut footer = "\x1b[1m".to_string();
-            footer.push_str("───────────╯");
-            footer.push_str(&format!(
-                "\x1b[0m\n{} total changes \u{2022} \x1b[92m{} additions\x1b[0m \u{2022} \x1b[91m{} deletions\x1b[0m",
-                summary.0, // total
-                summary.1, // additions
-                summary.2, // deletions
-            ));
-
-            // ...
-            patches.push(format!("{header}{}{footer}", lines.join("\n\x1b[0m")))
-        }
-
-        patches
-    }
-}
-
-// ...
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Branch {
@@ -228,7 +49,7 @@ impl Default for Commit {
             author: "system@localhost".to_string(),
             message: "Filler commit".to_string(),
             content: Patch {
-                files: HashMap::new(),
+                files: BTreeMap::new(),
             },
         }
     }
@@ -343,7 +164,7 @@ impl Garden {
                 timestamp TEXT,
                 author    TEXT,
                 message   TEXT,
-                content   TEXT
+                content   BLOB
             )",
         )
         .execute(c)
@@ -374,7 +195,7 @@ impl Garden {
 
         let c = &self.base.db.client;
         let row = match sqlquery(query).bind::<&String>(&id).fetch_one(c).await {
-            Ok(u) => self.base.textify_row(u).0,
+            Ok(u) => self.base.textify_row(u, Vec::new()).0,
             Err(_) => return Err(LilyError::Other),
         };
 
@@ -436,9 +257,12 @@ impl Garden {
             .fetch_one(c)
             .await
         {
-            Ok(p) => self.base.textify_row(p).0,
+            Ok(p) => self.base.textify_row(p, vec!["content".to_string()]),
             Err(_) => return Err(LilyError::Other),
         };
+
+        let bytes_res = res.1;
+        let res = res.0;
 
         // return
         Ok(Commit {
@@ -447,7 +271,9 @@ impl Garden {
             timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
             author: res.get("author").unwrap().to_string(),
             message: res.get("message").unwrap().to_string(),
-            content: match serde_json::from_str(res.get("content").unwrap()) {
+            content: match serde_json::from_str(&Pack::decode_vec(
+                bytes_res.get("content").unwrap().to_owned(),
+            )) {
                 Ok(m) => m,
                 Err(_) => return Err(LilyError::ValueError),
             },
@@ -467,9 +293,12 @@ impl Garden {
 
         let c = &self.base.db.client;
         let res = match sqlquery(&query).fetch_one(c).await {
-            Ok(p) => self.base.textify_row(p).0,
+            Ok(p) => self.base.textify_row(p, vec!["content".to_string()]),
             Err(_) => return Err(LilyError::Other),
         };
+
+        let bytes_res = res.1;
+        let res = res.0;
 
         // return
         Ok(Commit {
@@ -478,7 +307,9 @@ impl Garden {
             timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
             author: res.get("author").unwrap().to_string(),
             message: res.get("message").unwrap().to_string(),
-            content: match serde_json::from_str(res.get("content").unwrap()) {
+            content: match serde_json::from_str(&Pack::decode_vec(
+                bytes_res.get("content").unwrap().to_owned(),
+            )) {
                 Ok(m) => m,
                 Err(_) => return Err(LilyError::ValueError),
             },
@@ -500,7 +331,7 @@ impl Garden {
     ) -> Result<String> {
         // build patch
         let mut patch = Patch {
-            files: HashMap::new(),
+            files: BTreeMap::new(),
         };
 
         let files = match self.stage.get_files() {
@@ -562,10 +393,10 @@ impl Garden {
             .bind::<i32>(utility::unix_epoch_timestamp() as i32)
             .bind::<&String>(&author)
             .bind::<&String>(&message)
-            .bind::<&String>(&match serde_json::to_string(&patch) {
+            .bind::<&[u8]>(&Pack::from_string(match serde_json::to_string(&patch) {
                 Ok(m) => m,
                 Err(_) => return Err(LilyError::ValueError),
-            })
+            }))
             .execute(c)
             .await
         {

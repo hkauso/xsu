@@ -1,16 +1,16 @@
 //! Lily CLI
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ArgAction};
 use std::io::{Error, ErrorKind, Result};
 use xsu_util::{
     fs,
     process::{no, yes},
 };
 
-use xsu_lily::garden::Garden;
+use xsu_lily::{patch::Patch, garden::Garden};
 
 // ...
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = Option::Some("Slime Markdown"))]
+#[command(version, about, long_about = Option::Some("Lily Version Control"))]
 #[command(propagate_version = true)]
 struct App {
     #[command(subcommand)]
@@ -38,6 +38,17 @@ enum Commands {
     Diff {
         /// The ID of the commit
         commit: String,
+        /// If we should return the diff as HTML
+        #[arg(short = 'H', long, action = ArgAction::SetTrue)]
+        html: bool,
+    },
+    /// View the difference between two files
+    FDiff {
+        first: String,
+        second: String,
+        /// If we should return the diff as HTML
+        #[arg(short = 'H', long, action = ArgAction::SetTrue)]
+        html: bool,
     },
 }
 
@@ -106,37 +117,43 @@ async fn lily<'a>() -> Result<&'a str> {
             Err(Error::new(ErrorKind::Other, "Failed to create commit."))
         }
         #[rustfmt::ignore]
-        Commands::Diff { commit } => {
+        Commands::Diff { commit, html } => {
             let garden = Garden::new().await;
 
             if let Ok(commit) = garden.get_commit(commit.to_string()).await {
-                let mut total_changes = 0;
-                let mut total_additions = 0;
-                let mut total_deletions = 0;
-
-                for patch in &commit.content.files {
-                    let summary = patch.1.summary();
-                    total_changes += summary.0;
-                    total_additions += summary.1;
-                    total_deletions += summary.2;
-                }
-
-                for output in commit.content.render() {
+                for output in if html == &true {
+                    commit.content.render_html()
+                } else {
+                    commit.content.render()
+                } {
                     println!("{output}");
                 }
-
-                println!(
-                    "\x1b[0m\n{} \u{2022} {} total changes \u{2022} \x1b[92m{} additions\x1b[0m \u{2022} \x1b[91m{} deletions\x1b[0m",
-                    commit.id.chars().take(10).collect::<String>(),
-                    total_changes,
-                    total_additions,
-                    total_deletions
-                );
 
                 return Ok("Finished.");
             }
 
             Err(Error::new(ErrorKind::NotFound, "Invalid commit ID."))
+        }
+        Commands::FDiff {
+            first,
+            second,
+            html,
+        } => {
+            let patch = Patch::from_file(
+                format!("{first}+{second}"),
+                fs::read(first)?,
+                fs::read(second)?,
+            );
+
+            for output in if html == &true {
+                patch.render_html()
+            } else {
+                patch.render()
+            } {
+                println!("{output}")
+            }
+
+            Ok("Finished.")
         }
     }
 }
