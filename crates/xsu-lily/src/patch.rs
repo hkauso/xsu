@@ -17,6 +17,8 @@ pub enum ChangeMode {
 pub type Change = (usize, ChangeMode, String);
 
 /// A file inside of a [`Patch`]
+///
+/// `(old content, changes)`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatchFile(pub String, pub Vec<Change>);
 
@@ -43,6 +45,39 @@ impl PatchFile {
         }
 
         (self.1.len(), additions, deletions)
+    }
+
+    /// Apply a [`PatchFile`] to a [`String`] and get the patched version of the [`String`]
+    ///
+    /// # Example
+    /// ```rust
+    /// let patch: PatchFile = ...; // obtain the patch somewhere here
+    /// let current_version = String::new(); // ideally we would read a file here
+    /// let new_version = patch.apply(current_version);
+    /// ```
+    pub fn apply(&self, source: String) -> String {
+        let mut lines: Vec<&str> = source.split("\n").collect();
+
+        for patch in &self.1 {
+            match patch.1 {
+                ChangeMode::Added => {
+                    if patch.0 > lines.len() {
+                        lines.push(&patch.2);
+                        continue;
+                    }
+
+                    // insert
+                    lines.insert(patch.0, &patch.2);
+                    ()
+                }
+                ChangeMode::Deleted => {
+                    lines.remove(patch.0);
+                    ()
+                }
+            }
+        }
+
+        lines.join("\n")
     }
 }
 

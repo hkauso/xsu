@@ -39,9 +39,12 @@ impl Pack {
 
     /// Read a [`Pack`] from its hash
     pub fn from_hash(hash: String) -> HashMap<String, String> {
-        let mut archive = Archive::new(GzDecoder::new(
-            File::open(format!(".garden/objects/{hash}")).unwrap(),
-        ));
+        Pack::from_file(File::open(format!(".garden/objects/{hash}")).unwrap())
+    }
+
+    /// Read a [`Pack`] from a [`File`]
+    pub fn from_file(file: File) -> HashMap<String, String> {
+        let mut archive = Archive::new(GzDecoder::new(file));
 
         let mut out = HashMap::new();
 

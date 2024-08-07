@@ -2,9 +2,10 @@
 use crate::model::LilyError;
 use crate::pack::Pack;
 use crate::stage::Stage;
-use crate::patch::{ChangeMode, PatchFile, Patch};
+use crate::patch::Patch;
 
 use std::collections::BTreeMap;
+use std::fs::File;
 use serde::{Serialize, Deserialize};
 
 use xsu_util::fs;
@@ -52,6 +53,14 @@ impl Default for Commit {
                 files: BTreeMap::new(),
             },
         }
+    }
+}
+
+impl Commit {
+    /// Get the gzip archive object file for the commit
+    pub fn get_object(&self) -> File {
+        File::open(format!(".garden/objects/{}", self.id))
+            .unwrap_or(File::open(".garden/objects/blank").unwrap())
     }
 }
 
@@ -108,6 +117,11 @@ impl Garden {
         if let Err(_) = fs::read_dir(".garden") {
             fs::mkdir(".garden").unwrap();
             fs::mkdir(".garden/objects").unwrap();
+
+            if let Err(_) = File::open(".garden/objects/blank") {
+                // create blank pack with no files just so we don't panic
+                Pack::new(Vec::new(), "blank".to_string());
+            }
 
             fs::touch(".garden/lily.db").unwrap();
             fs::touch(".garden/tracker.db").unwrap();
@@ -340,32 +354,49 @@ impl Garden {
         };
 
         let latest_commit = self.get_latest_commit().await.unwrap_or_default();
+        let latest_pack = Pack::from_file(latest_commit.get_object());
+        let mut file_names = Vec::new();
+
         for file in &files {
             if file.is_empty() {
                 continue;
             }
 
-            // generate file patch
-            let previous = latest_commit.content.files.get(file.as_str());
+            // get previous file content
+            let previous = latest_pack.get(file);
             let previous = match previous {
-                Some(previous) => previous,
-                None => &PatchFile::default(),
+                Some(previous) => previous.to_owned(),
+                None => String::new(),
             };
 
-            let file_patch = Patch::from_file(
-                file.clone(),
-                previous
-                    .1
-                    .get(if previous.1.len() > 0 {
-                        previous.1.len() - 1
-                    } else {
-                        0
-                    })
-                    .unwrap_or(&(0, ChangeMode::Added, String::new()))
-                    .2
-                    .clone(),
-                fs::read(file).unwrap(),
-            );
+            // ...
+            file_names.push(file.clone());
+            let file_patch = Patch::from_file(file.clone(), previous, fs::read(file).unwrap());
+
+            for file in file_patch.files {
+                // if the file literally did not change then we should skip here!
+                // file.1.1 = changes vec
+                if file.1 .1.len() == 0 {
+                    continue;
+                }
+
+                // ...
+                patch.files.insert(file.0, file.1);
+            }
+        }
+
+        // check for deleted files
+        for file in latest_pack {
+            if file_names.contains(&file.0) {
+                // if we've previously seen this file name then we don't need to
+                // say it was fully deleted
+                continue;
+            }
+
+            // this should just be a complete deletion on every line
+            // this isn't dont by the previous for loop because that loops over the files
+            // that we CURRENTLY have... which means anything deleted just isn't shown
+            let file_patch = Patch::from_file(file.0.clone(), file.1, String::new());
 
             for file in file_patch.files {
                 patch.files.insert(file.0, file.1);
