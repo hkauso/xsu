@@ -44,6 +44,10 @@ pub fn rmdirr<P: AsRef<Path>>(path: P) -> Result<()>
 where
     P: AsRef<Path>,
 {
+    if let Err(_) = read_dir(&path) {
+        return Ok(()); // doesn't exist, return ok since there was nothing to remove
+    }
+
     remove_dir_all(path)
 }
 

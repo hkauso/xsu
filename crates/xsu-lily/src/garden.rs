@@ -62,6 +62,35 @@ impl Commit {
         File::open(format!(".garden/objects/{}", self.id))
             .unwrap_or(File::open(".garden/objects/blank").unwrap())
     }
+
+    /// Render the commit to an HTML string
+    pub fn render(&self) -> String {
+        let mut out = String::new();
+
+        // add header
+        out.push_str(&format!(
+            "<header>
+                <h3>{}</h3>
+                <span class=\"lily:commit_status_line\">
+                    <a href=\"../index.html\">&lt; Back</a> \u{2022} 
+                    <a href=\"../../../objects/{}\" download=\"{}.tar.gz\">Download</a> \u{2022} 
+                    <span class=\"lily:commit_branch\">{}</span> \u{2022} 
+                    <span class=\"lily:commit_author\">{}</span> \u{2022} 
+                    <span class=\"lily:commit_timestamp\">{}</span>
+                </span>
+                <hr />
+            </header>",
+            self.id, self.id, self.id, self.branch, self.author, self.timestamp
+        ));
+
+        // add patch
+        for file in self.content.render_html() {
+            out.push_str(&file);
+        }
+
+        // return
+        out
+    }
 }
 
 /// Information about a [`Garden`]'s branches
@@ -194,6 +223,122 @@ impl Garden {
         if let Err(e) = self.stage.init() {
             panic!("STAGE ERROR: {:?}", e)
         }
+    }
+
+    /// Render the garden to HTML and write it to `.garden/web/{branch}`
+    pub async fn render(&self, branch: String, verbose: bool) -> () {
+        fs::mkdir(".garden/web").unwrap();
+        fs::rmdirr(format!(".garden/web/{branch}")).unwrap(); // clear web/branch directory recursively
+        fs::mkdir(format!(".garden/web/{branch}")).unwrap();
+        fs::mkdir(format!(".garden/web/{branch}/commits")).unwrap();
+
+        // render commits
+        let commits = self.get_all_commits(branch.clone()).await.unwrap();
+
+        let mut commits_index = String::new(); // list of all commits
+        commits_index.push_str("<ul>");
+
+        for commit in &commits {
+            fs::mkdir(format!(".garden/web/{branch}/commits/{}", commit.id)).unwrap(); // commit meta stuff
+            fs::mkdir(format!(".garden/web/{branch}/commits/{}/tree", commit.id)).unwrap(); // commit files
+
+            // add to index
+            commits_index.push_str(&format!(
+                "<li class=\"lily:commit_listing\" role=\"file\">
+                    <a href=\"{}/index.html\">{}</a> (<a href=\"{}/tree.html\">tree</a>)
+                </li>",
+                commit.id, commit.id, commit.id
+            ));
+
+            // render main commit page
+            let path = format!(".garden/web/{branch}/commits/{}/index.html", commit.id);
+
+            if verbose {
+                println!("{path}");
+            }
+
+            fs::write(path, commit.render()).unwrap();
+
+            // render file index
+            let mut file_index = String::new(); // listing of all files
+            file_index.push_str("<a href=\"index.html\">&lt; Back</a><ul>");
+
+            let commit_pack = Pack::from_file(commit.get_object());
+
+            // render files
+            for file in commit_pack {
+                let mut out = String::new();
+
+                // add header
+                out.push_str(&format!(
+                    "<header>
+                         <h3>{}</h3>
+                        <span class=\"lily:file_status_line\">
+                            <span class=\"lily:file_index_link\"><a href=\"../tree.html\">&lt; Back</a></span> \u{2022} 
+                            <span class=\"lily:file_commit\"><a href=\"../../commits/{}.html\">{}</a></span> \u{2022} 
+                            <span class=\"lily:file_branch\">{}</span>
+                        </span>
+                        <hr />
+                    </header>",
+                    file.0, commit.id, commit.id, commit.branch
+                ));
+
+                // add file
+                let mut line_numbers = String::new();
+                let mut lines = String::new();
+
+                for line in file.1.split("\n").enumerate() {
+                    // line number
+                    line_numbers.push_str(&format!("<span style=\"color: blue\" class=\"lily:94m\" role=\"extra\"><code class=\"lily:u0098\" id=\"ln-{}\">{}</code></span>\n", line.0 + 1, line.0 + 1));
+
+                    // line
+                    lines.push_str(&format!(
+                        "{}\n",
+                        line.1.replace("<", "&lt;").replace(">", "&gt;")
+                    ));
+                }
+
+                // ...
+                out.push_str(&format!("<article style=\"display: flex; gap: 0.5rem\"><pre role=\"line-numbers\" class=\"lily:file_line_numbers\">{line_numbers}</pre>
+                <pre role=\"source-display\" class=\"lily:file_lines\" style=\"width: 100%; overflow-x: auto\">{lines}</pre></article>"));
+
+                // write
+                let path = format!(
+                    ".garden/web/{branch}/commits/{}/tree/{}.html",
+                    commit.id,
+                    file.0.replace("/", ">")
+                );
+
+                if verbose {
+                    println!("{path}");
+                }
+
+                fs::write(path, out).unwrap();
+
+                // add to index
+                file_index.push_str(&format!(
+                    "<li class=\"lily:file_listing\" role=\"file\"><a href=\"tree/{}.html\">{}</a></li>",
+                    file.0.replace("/", ">"),
+                    file.0
+                ))
+            }
+
+            // finish file index
+            file_index.push_str("</ul>");
+            fs::write(
+                format!(".garden/web/{branch}/commits/{}/tree.html", commit.id),
+                file_index,
+            )
+            .unwrap();
+        }
+
+        // finish commits index
+        commits_index.push_str("</ul>");
+        fs::write(
+            format!(".garden/web/{branch}/commits/index.html"),
+            commits_index,
+        )
+        .unwrap();
     }
 
     // branches
@@ -334,6 +479,52 @@ impl Garden {
         })
     }
 
+    /// Get all commits stored in the database
+    pub async fn get_all_commits(&self, branch: String) -> Result<Vec<Commit>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"commits\" WHERE \"branch\" = ? ORDER BY \"timestamp\" DESC"
+        } else {
+            "SELECT * FROM \"commits\" WHERE \"branch\" = $1 ORDER BY \"timestamp\" DESC"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).bind::<&String>(&branch).fetch_all(c).await {
+            Ok(p) => {
+                let mut out = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, vec!["content".to_string()]);
+
+                    let bytes_res = res.1;
+                    let res = res.0;
+
+                    out.push(Commit {
+                        id: res.get("id").unwrap().to_string(),
+                        branch: res.get("branch").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                        author: res.get("author").unwrap().to_string(),
+                        message: res.get("message").unwrap().to_string(),
+                        content: match serde_json::from_str(&Pack::decode_vec(
+                            bytes_res.get("content").unwrap().to_owned(),
+                        )) {
+                            Ok(m) => m,
+                            Err(_) => return Err(LilyError::ValueError),
+                        },
+                    })
+                }
+
+                out
+            }
+            Err(_) => return Err(LilyError::Other),
+        };
+
+        // return
+        Ok(res)
+    }
+
     // SET
     /// Create a new [`Commit`]
     ///
@@ -426,7 +617,7 @@ impl Garden {
         match sqlquery(query)
             .bind::<&String>(&id)
             .bind::<&String>(&branch)
-            .bind::<i32>(utility::unix_epoch_timestamp() as i32)
+            .bind::<&String>(&utility::unix_epoch_timestamp().to_string())
             .bind::<&String>(&author)
             .bind::<&String>(&message)
             .bind::<&[u8]>(&Pack::from_string(match serde_json::to_string(&patch) {

@@ -6,7 +6,7 @@ use xsu_util::{
     process::{no, yes},
 };
 
-use xsu_lily::{patch::Patch, garden::Garden};
+use xsu_lily::{patch::Patch, garden::Garden, pack::Pack};
 
 // ...
 #[derive(Parser, Debug)]
@@ -49,6 +49,14 @@ enum Commands {
         /// If we should return the diff as HTML
         #[arg(short = 'H', long, action = ArgAction::SetTrue)]
         html: bool,
+    },
+    /// Create a repo pack
+    RPack { name: String },
+    /// Render garden HTML
+    Render {
+        branch: String,
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        verbose: bool,
     },
 }
 
@@ -153,6 +161,15 @@ async fn lily<'a>() -> Result<&'a str> {
                 println!("{output}")
             }
 
+            Ok("Finished.")
+        }
+        Commands::RPack { name } => {
+            println!("{}", Pack::from_repo(name.to_owned()).await.0);
+            Ok("Finished.")
+        }
+        Commands::Render { branch, verbose } => {
+            let garden = Garden::new().await;
+            garden.render(branch.to_owned(), verbose.to_owned()).await;
             Ok("Finished.")
         }
     }

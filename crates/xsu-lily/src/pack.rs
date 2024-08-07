@@ -1,4 +1,5 @@
-use std::{fs::File, collections::HashMap, io::prelude::*};
+use std::collections::BTreeMap;
+use std::{fs::File, io::prelude::*};
 use xsu_util::fs::fstat;
 
 use tar::{Builder, Archive};
@@ -37,16 +38,42 @@ impl Pack {
         Self(path)
     }
 
+    /// Create a [`Pack`] of the entire `.garden` directory
+    pub async fn from_repo(name: String) -> Self {
+        let path = format!("{name}.repo");
+        let file = File::create(&path).unwrap();
+
+        let enc = GzEncoder::new(file, Compression::default());
+        let mut archive = Builder::new(enc);
+
+        // get files
+        archive
+            .append_dir_all("objects", ".garden/objects")
+            .unwrap();
+        archive.append_dir_all("www", ".garden/www").unwrap();
+        archive
+            .append_path_with_name(".garden/lily.db", "lily.db")
+            .unwrap();
+        archive
+            .append_path_with_name(".garden/info", "info")
+            .unwrap();
+
+        archive.finish().unwrap(); // finish the pack
+
+        // return the pack
+        Self(path)
+    }
+
     /// Read a [`Pack`] from its hash
-    pub fn from_hash(hash: String) -> HashMap<String, String> {
+    pub fn from_hash(hash: String) -> BTreeMap<String, String> {
         Pack::from_file(File::open(format!(".garden/objects/{hash}")).unwrap())
     }
 
     /// Read a [`Pack`] from a [`File`]
-    pub fn from_file(file: File) -> HashMap<String, String> {
+    pub fn from_file(file: File) -> BTreeMap<String, String> {
         let mut archive = Archive::new(GzDecoder::new(file));
 
-        let mut out = HashMap::new();
+        let mut out = BTreeMap::new();
 
         for file in archive.entries().unwrap() {
             let mut file = file.unwrap();

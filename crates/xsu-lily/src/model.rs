@@ -1,4 +1,5 @@
 /// General API errors
+#[derive(Debug)]
 pub enum LilyError {
     MustBeUnique,
     NotAllowed,
