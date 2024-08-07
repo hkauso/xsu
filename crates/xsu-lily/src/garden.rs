@@ -1,7 +1,7 @@
 //! Lily gardens (repositories)
 use crate::model::LilyError;
 use crate::pack::Pack;
-use crate::stage::Stage;
+use crate::stage::{LocalStage, Stage};
 use crate::patch::Patch;
 
 use std::collections::BTreeMap;
@@ -109,6 +109,8 @@ pub struct Garden {
     pub tracker: xsu_dataman::StarterDatabase,
     /// The stagefile
     pub stage: Stage,
+    /// The localfdile
+    pub local: LocalStage,
 }
 
 impl Garden {
@@ -132,7 +134,8 @@ impl Garden {
             )
             .unwrap();
 
-            fs::touch(".garden/stagefile").unwrap();
+            fs::touch(".garden/stagefile").unwrap(); // files that are waiting to be included with a commit
+            fs::touch(".garden/localfile").unwrap(); // commit hashes that haven't been synced to remote yet
         }
 
         // ...
@@ -153,7 +156,8 @@ impl Garden {
                 ..Default::default()
             })
             .await,
-            stage: Stage(format!(".garden/stagefile")),
+            stage: Stage(".garden/stagefile".to_string()),
+            local: LocalStage(".garden/stagefile".to_string()),
         }
     }
 
@@ -405,6 +409,7 @@ impl Garden {
 
         // create pack
         let id: String = utility::random_id();
+        self.local.add(id.clone()).unwrap(); // since we just created this commit, chances are we haven't sent it to remote yet
 
         println!("Creating pack...");
         Pack::new(files, id.clone());

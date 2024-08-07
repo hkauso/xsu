@@ -91,3 +91,48 @@ impl Stage {
         fs::append(&self.0, format!("\n{out}"))
     }
 }
+
+/// The local stage is where we store the hashes of commits that haven't been synced to remote yet
+#[derive(Debug, Clone)]
+pub struct LocalStage(pub String);
+
+impl LocalStage {
+    /// Make sure the localfile exists
+    pub fn init(&self) -> Result<()> {
+        if let Err(_) = fs::read(&self.0) {
+            fs::touch(&self.0)?;
+        }
+
+        Ok(())
+    }
+
+    /// Get the list of files that are in the stage
+    pub fn get_files(&self) -> Result<Vec<String>> {
+        match fs::read(&self.0) {
+            Ok(r) => {
+                let mut out = Vec::new();
+
+                for slice in r.split("\n") {
+                    if slice.is_empty() {
+                        continue;
+                    }
+
+                    out.push(slice.to_string())
+                }
+
+                Ok(out)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Clear the stage
+    pub fn clear(&self) -> Result<()> {
+        fs::touch(&self.0)
+    }
+
+    /// Add commit hash to the stage
+    pub fn add(&self, hash: String) -> Result<()> {
+        fs::append(&self.0, format!("\n{hash}"))
+    }
+}

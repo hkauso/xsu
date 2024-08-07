@@ -10,5 +10,6 @@ members = [
     "crates/xsu-dataman",
     "crates/xsu-cliff", 
     "crates/xsu-slime", 
-    "crates/xsu-lily"
+    "crates/xsu-lily",
+    "crates/sprocd"
 ]

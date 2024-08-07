@@ -2144,6 +2144,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sprocd"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sproc",
+ "sysinfo",
+ "tokio",
+ "toml",
+ "xsu-util",
+]
+
+[[package]]
 name = "sqlformat"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3253,7 +3268,6 @@ dependencies = [
  "askama_axum",
  "axum",
  "axum-extra",
- "clap",
  "reqwest",
  "serde",
  "serde_json",
@@ -3298,7 +3312,7 @@ dependencies = [
 
 [[package]]
 name = "xsu-lily"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "flate2",

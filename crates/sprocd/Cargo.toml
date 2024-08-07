@@ -1,0 +1,32 @@
+[package]
+name = "sprocd"
+version = "0.1.0"
+edition = "2021"
+authors = ["hkau"]
+description = "Sproc daemon"
+homepage = "https://swmff.org"
+repository = "https://github.com/hkauso/xsu"
+license = "MIT"
+
+
+[features]
+postgres = ["sproc/postgres"]
+mysql = ["sproc/mysql"]
+sqlite = ["sproc/sqlite"]
+default = ["sproc/sqlite"]
+
+[dependencies]
+axum = { version = "0.7.5", features = ["macros", "form"] }
+reqwest = { version = "0.12.5", features = ["json"] }
+serde = { version = "1.0.203", features = ["derive"] }
+sysinfo = "0.30.12"
+tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
+toml = "0.8.14"
+xsu-util = { path = "../xsu-util" }
+sproc = { path = "../sproc", default-features = false }
+serde_json = "1.0.120"
+
+[[bin]]
+path = "src/main.rs"
+name = "sprocd"
+test = false
