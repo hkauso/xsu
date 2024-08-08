@@ -1,4 +1,4 @@
-use crate::model::{DocumentCreate, DatabaseError, Document, DocumentMetadata};
+use crate::model::{RepositoryCreate, DatabaseError, Repository, RepositoryMetadata};
 
 use xsu_dataman::utility;
 use xsu_dataman::query as sqlquery;
@@ -49,13 +49,11 @@ impl Database {
         let c = &self.base.db.client;
 
         let _ = sqlquery(
-            "CREATE TABLE IF NOT EXISTS \"xdocuments\" (
-                 path TEXT,
-                 owner TEXT,
-                 content TEXT,
+            "CREATE TABLE IF NOT EXISTS \"xrepos\" (
+                 name           TEXT,
+                 owner          TEXT,
                  date_published TEXT,
-                 date_edited TEXT,
-                 metadata TEXT
+                 metadata       TEXT
             )",
         )
         .execute(c)
@@ -82,35 +80,35 @@ impl Database {
 
     // ...
 
-    /// Get an existing document
+    /// Get an existing repository
     ///
     /// ## Arguments:
     /// * `path`
     /// * `owner`
-    pub async fn get_document(&self, path: String, owner: String) -> Result<Document> {
+    pub async fn get_repository(&self, name: String, owner: String) -> Result<Repository> {
         // check in cache
         match self
             .base
             .cachedb
-            .get(format!("xsulib.docshare:{}:{}", owner, path))
+            .get(format!("xsulib.bulb:{}:{}", owner, name))
             .await
         {
-            Some(c) => return Ok(serde_json::from_str::<Document>(c.as_str()).unwrap()),
+            Some(c) => return Ok(serde_json::from_str::<Repository>(c.as_str()).unwrap()),
             None => (),
         };
 
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
-            "SELECT * FROM \"xdocuments\" WHERE \"path\" = ? AND \"owner\" = ?"
+            "SELECT * FROM \"xrepos\" WHERE \"name\" = ? AND \"owner\" = ?"
         } else {
-            "SELECT * FROM \"xdocuments\" WHERE \"path\" = $1 AND \"owner\" = $2"
+            "SELECT * FROM \"xrepos\" WHERE \"name\" = $1 AND \"owner\" = $2"
         }
         .to_string();
 
         let c = &self.base.db.client;
         let res = match sqlquery(&query)
-            .bind::<&String>(&path.to_lowercase())
+            .bind::<&String>(&name.to_lowercase())
             .bind::<&String>(&owner.to_lowercase())
             .fetch_one(c)
             .await
@@ -120,12 +118,10 @@ impl Database {
         };
 
         // return
-        let doc = Document {
-            path: res.get("path").unwrap().to_string(),
+        let repo = Repository {
+            name: res.get("name").unwrap().to_string(),
             owner: res.get("owner").unwrap().to_string(),
-            content: res.get("content").unwrap().to_string(),
             date_published: res.get("date_published").unwrap().parse::<u128>().unwrap(),
-            date_edited: res.get("date_edited").unwrap().parse::<u128>().unwrap(),
             metadata: match serde_json::from_str(res.get("metadata").unwrap()) {
                 Ok(m) => m,
                 Err(_) => return Err(DatabaseError::ValueError),
@@ -136,26 +132,26 @@ impl Database {
         self.base
             .cachedb
             .set(
-                format!("xsulib.docshare:{}:{}", owner, path),
-                serde_json::to_string::<Document>(&doc).unwrap(),
+                format!("xsulib.bulb:{}:{}", owner, name),
+                serde_json::to_string::<Repository>(&repo).unwrap(),
             )
             .await;
 
         // return
-        Ok(doc)
+        Ok(repo)
     }
 
-    /// Get an existing document
+    /// Get all existing repository by their owner
     ///
     /// ## Arguments:
     /// * `owner`
-    pub async fn get_documents_by_owner(&self, owner: String) -> Result<Vec<Document>> {
+    pub async fn get_repositories_by_owner(&self, owner: String) -> Result<Vec<Repository>> {
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
-            "SELECT * FROM \"xdocuments\" WHERE \"owner\" = ?"
+            "SELECT * FROM \"xrepos\" WHERE \"owner\" = ?"
         } else {
-            "SELECT * FROM \"xdocuments\" WHERE \"owner\" = $2"
+            "SELECT * FROM \"xrepos\" WHERE \"owner\" = $2"
         }
         .to_string();
 
@@ -166,16 +162,14 @@ impl Database {
             .await
         {
             Ok(p) => {
-                let mut out: Vec<Document> = Vec::new();
+                let mut out: Vec<Repository> = Vec::new();
 
                 for row in p {
                     let res = self.base.textify_row(row, Vec::new()).0;
-                    out.push(Document {
-                        path: res.get("path").unwrap().to_string(),
+                    out.push(Repository {
+                        name: res.get("name").unwrap().to_string(),
                         owner: res.get("owner").unwrap().to_string(),
-                        content: res.get("content").unwrap().to_string(),
                         date_published: res.get("date_published").unwrap().parse::<u128>().unwrap(),
-                        date_edited: res.get("date_edited").unwrap().parse::<u128>().unwrap(),
                         metadata: match serde_json::from_str(res.get("metadata").unwrap()) {
                             Ok(m) => m,
                             Err(_) => return Err(DatabaseError::ValueError),
@@ -192,67 +186,63 @@ impl Database {
         Ok(res)
     }
 
-    /// Create a new document
+    /// Create a new repository
     ///
     /// ## Arguments:
-    /// * `props` - [`DocumentCreate`]
-    pub async fn create_document(&self, mut props: DocumentCreate, owner: String) -> Result<()> {
-        // make sure document doesn't already exist
-        if let Ok(_) = self.get_document(props.path.clone(), owner.clone()).await {
+    /// * `props` - [`RepositoryCreate`]
+    pub async fn create_repository(
+        &self,
+        mut props: RepositoryCreate,
+        owner: String,
+    ) -> Result<()> {
+        // make sure repo doesn't already exist
+        if let Ok(_) = self.get_repository(props.name.clone(), owner.clone()).await {
             return Err(DatabaseError::AlreadyExists);
         }
 
-        // create url if not supplied
-        if props.path.is_empty() {
-            props.path = utility::random_id().chars().take(10).collect();
+        // create name if not supplied
+        if props.name.is_empty() {
+            props.name = utility::random_id().chars().take(10).collect();
         }
 
         // check lengths
-        if (props.path.len() > 250) | (props.path.len() < 3) {
-            return Err(DatabaseError::ValueError);
-        }
-
-        if (props.content.len() > 200_000) | (props.content.len() < 1) {
+        if (props.name.len() > 250) | (props.name.len() < 3) {
             return Err(DatabaseError::ValueError);
         }
 
         // (characters used)
-        let regex = regex::RegexBuilder::new("^[\\w\\_\\-\\.\\\\/!]+$")
+        let regex = regex::RegexBuilder::new("^[\\w\\_\\-\\.\\!]+$")
             .multi_line(true)
             .build()
             .unwrap();
 
-        if regex.captures(&props.path).iter().len() < 1 {
+        if regex.captures(&props.name).iter().len() < 1 {
             return Err(DatabaseError::ValueError);
         }
 
         // ...
-        let doc = Document {
-            path: props.path,
+        let repo = Repository {
+            name: props.name,
             owner,
-            content: props.content,
             date_published: utility::unix_epoch_timestamp(),
-            date_edited: utility::unix_epoch_timestamp(),
-            metadata: DocumentMetadata::default(),
+            metadata: RepositoryMetadata::default(),
         };
 
-        // create document
+        // create repository
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
-            "INSERT INTO \"xdocuments\" VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO \"xrepos\" VALUES (?, ?, ?, ?)"
         } else {
-            "INSERT INTO \"xdocuments\" VALEUS ($1, $2, $3, $4, $5, $6)"
+            "INSERT INTO \"xrepos\" VALEUS ($1, $2, $3, $4)"
         }
         .to_string();
 
         let c = &self.base.db.client;
         match sqlquery(&query)
-            .bind::<&String>(&doc.path)
-            .bind::<&String>(&doc.owner)
-            .bind::<&String>(&doc.content)
-            .bind::<&String>(&doc.date_published.to_string())
-            .bind::<&String>(&doc.date_edited.to_string())
-            .bind::<&String>(match serde_json::to_string(&doc.metadata) {
+            .bind::<&String>(&repo.name)
+            .bind::<&String>(&repo.owner)
+            .bind::<&String>(&repo.date_published.to_string())
+            .bind::<&String>(match serde_json::to_string(&repo.metadata) {
                 Ok(ref s) => s,
                 Err(_) => return Err(DatabaseError::ValueError),
             })
@@ -264,15 +254,20 @@ impl Database {
         };
     }
 
-    /// Delete an existing document
+    /// Delete an existing repository
     ///
     /// ## Arguments:
-    /// * `path
+    /// * `name`
     /// * `owner`
     /// * `user` - the user doing this
-    pub async fn delete_document(&self, path: String, owner: String, user: Profile) -> Result<()> {
-        // make document exists
-        if let Err(e) = self.get_document(path.clone(), owner.clone()).await {
+    pub async fn delete_repository(
+        &self,
+        name: String,
+        owner: String,
+        user: Profile,
+    ) -> Result<()> {
+        // make repository exists
+        if let Err(e) = self.get_repository(name.clone(), owner.clone()).await {
             return Err(e);
         };
 
@@ -289,18 +284,18 @@ impl Database {
             }
         }
 
-        // delete document
+        // delete repository
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
-            "DELETE FROM \"xdocuments\" WHERE \"path\" = ? AND \"owner\" = ?"
+            "DELETE FROM \"xrepos\" WHERE \"name\" = ? AND \"owner\" = ?"
         } else {
-            "DELETE FROM \"xdocuments\" WHERE \"path\" = $1 AND \"owner\" = $2"
+            "DELETE FROM \"xrepos\" WHERE \"name\" = $1 AND \"owner\" = $2"
         }
         .to_string();
 
         let c = &self.base.db.client;
         match sqlquery(&query)
-            .bind::<&String>(&path)
+            .bind::<&String>(&name)
             .bind::<&String>(&owner)
             .execute(c)
             .await
@@ -309,7 +304,7 @@ impl Database {
                 // remove from cache
                 self.base
                     .cachedb
-                    .remove(format!("xsulib.docshare:{}:{}", owner, path))
+                    .remove(format!("xsulib.bulb:{}:{}", owner, name))
                     .await;
 
                 // return
@@ -319,94 +314,22 @@ impl Database {
         };
     }
 
-    /// Edit an existing document
+    /// Edit an existing repository's metadata
     ///
     /// ## Arguments:
     /// * `path`
     /// * `owner`
-    /// * `new_content` - the new content of the document
-    /// * `new_path` - the new path of the document
+    /// * `metadata` - the new metadata of the repository
     /// * `user` - the user doing this
-    pub async fn edit_document(
+    pub async fn edit_repository_metadata(
         &self,
-        path: String,
+        name: String,
         owner: String,
-        new_content: String,
-        mut new_path: String,
+        metadata: RepositoryMetadata,
         user: Profile,
     ) -> Result<()> {
-        // make sure document exists
-        let existing = match self.get_document(path.clone(), owner.clone()).await {
-            Ok(p) => p,
-            Err(err) => return Err(err),
-        };
-
-        // check username
-        if user.username != owner {
-            // check permission
-            let group = match self.auth.get_group_by_id(user.group).await {
-                Ok(g) => g,
-                Err(_) => return Err(DatabaseError::Other),
-            };
-
-            if !group.permissions.contains(&Permission::Manager) {
-                return Err(DatabaseError::NotAllowed);
-            }
-        }
-
-        // update path
-        if new_path.is_empty() {
-            new_path = existing.path;
-        }
-
-        // edit document
-        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
-            "UPDATE \"xdocuments\" SET \"content\" = ?, \"path\" = ?, \"date_edited\" = ? WHERE \"path\" = ? AND \"owner\" = ?"
-        } else {
-            "UPDATE \"xdocuments\" SET (\"content\" = $1, \"path\" = $2, \"date_edited\" = $3) WHERE \"path\" = $4 AND \"owner\" = $5"
-        }
-        .to_string();
-
-        let c = &self.base.db.client;
-        match sqlquery(&query)
-            .bind::<&String>(&new_content)
-            .bind::<&String>(&new_path)
-            .bind::<&String>(&utility::unix_epoch_timestamp().to_string())
-            .bind::<&String>(&path)
-            .bind::<&String>(&owner)
-            .execute(c)
-            .await
-        {
-            Ok(_) => {
-                // remove from cache
-                self.base
-                    .cachedb
-                    .remove(format!("xsulib.docshare:{}:{}", owner, path))
-                    .await;
-
-                // return
-                return Ok(());
-            }
-            Err(_) => return Err(DatabaseError::Other),
-        };
-    }
-
-    /// Edit an existing document's metadata
-    ///
-    /// ## Arguments:
-    /// * `path`
-    /// * `owner`
-    /// * `metadata` - the new metadata of the document
-    /// * `user` - the user doing this
-    pub async fn edit_document_metadata(
-        &self,
-        path: String,
-        owner: String,
-        metadata: DocumentMetadata,
-        user: Profile,
-    ) -> Result<()> {
-        // make sure document exists
-        if let Err(e) = self.get_document(path.clone(), owner.clone()).await {
+        // make sure repository exists
+        if let Err(e) = self.get_repository(name.clone(), owner.clone()).await {
             return Err(e);
         };
 
@@ -423,12 +346,12 @@ impl Database {
             }
         }
 
-        // edit document
+        // edit repository
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
-            "UPDATE \"xdocuments\" SET \"metadata\" = ? WHERE \"path\" = ? AND \"owner\" = ?"
+            "UPDATE \"xrepos\" SET \"metadata\" = ? WHERE \"name\" = ? AND \"owner\" = ?"
         } else {
-            "UPDATE \"xdocuments\" SET (\"metadata\" = $1) WHERE \"path\" = $2 AND \"owner\" = $3"
+            "UPDATE \"xrepos\" SET (\"metadata\" = $1) WHERE \"name\" = $2 AND \"owner\" = $3"
         }
         .to_string();
 
@@ -438,7 +361,7 @@ impl Database {
                 Ok(ref m) => m,
                 Err(_) => return Err(DatabaseError::ValueError),
             })
-            .bind::<&String>(&path)
+            .bind::<&String>(&name)
             .bind::<&String>(&owner)
             .execute(c)
             .await
@@ -447,7 +370,7 @@ impl Database {
                 // remove from cache
                 self.base
                     .cachedb
-                    .remove(format!("xsulib.docshare:{}:{}", owner, path))
+                    .remove(format!("xsulib.bulb:{}:{}", owner, name))
                     .await;
 
                 // return

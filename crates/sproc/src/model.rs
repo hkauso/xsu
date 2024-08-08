@@ -329,7 +329,7 @@ impl Service {
 
     // package manager
 
-    /// Run and init a [`Service`]'s [`BuildConfiguration`]
+    /// Run and init a [`Service`]'s `BuildConfiguration`
     pub async fn bootstrap(&self, name: String) -> Result<()> {
         let home = env::var("HOME").expect("failed to read $HOME");
 

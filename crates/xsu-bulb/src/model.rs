@@ -8,92 +8,37 @@ use serde::{Deserialize, Serialize};
 use xsu_dataman::DefaultReturn;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Document {
-    /// The path to the document under the owner
-    pub path: String,
-    /// The username of the document's owner
+pub struct Repository {
+    /// The name of the repository
+    pub name: String,
+    /// The username of the repository owner
     pub owner: String,
-    /// The markdown content of the document
-    pub content: String,
-    /// The date the document was published
+    /// The date the repository was published
     pub date_published: u128,
-    /// The datse the document was edited
-    pub date_edited: u128,
-    /// Extra document options
-    pub metadata: DocumentMetadata,
-}
-
-/// Document visibility
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum DocumentVisibility {
-    /// Visible to anybody
-    Public,
-}
-
-impl Default for DocumentVisibility {
-    fn default() -> Self {
-        Self::Public
-    }
+    /// Extra repository options
+    pub metadata: RepositoryMetadata,
 }
 
 /// Document metadata
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DocumentMetadata {
-    /// The visiblity of the document
-    #[serde(default)]
-    pub visibility: DocumentVisibility,
-}
+pub struct RepositoryMetadata {}
 
-impl Default for DocumentMetadata {
+impl Default for RepositoryMetadata {
     fn default() -> Self {
-        Self {
-            visibility: DocumentVisibility::default(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PublicDocument {
-    pub path: String,
-    pub owner: String,
-    pub content: String,
-    pub date_published: u128,
-    pub date_edited: u128,
-    pub metadata: DocumentMetadata,
-}
-
-impl From<Document> for PublicDocument {
-    fn from(value: Document) -> Self {
-        Self {
-            path: value.path,
-            owner: value.owner,
-            content: value.content,
-            date_published: value.date_published,
-            date_edited: value.date_edited,
-            metadata: value.metadata,
-        }
+        Self {}
     }
 }
 
 // props
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DocumentCreate {
-    #[serde(default)]
-    pub path: String,
-    pub content: String,
+pub struct RepositoryCreate {
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DocumentEdit {
-    pub new_content: String,
-    #[serde(default)]
-    pub new_path: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DocumentEditMetadata {
-    pub metadata: DocumentMetadata,
+pub struct RepositoryEditMetadata {
+    pub metadata: RepositoryMetadata,
 }
 
 /// General API errors
@@ -109,10 +54,10 @@ impl DatabaseError {
     pub fn to_string(&self) -> String {
         use DatabaseError::*;
         match self {
-            AlreadyExists => String::from("A document with this path already exists."),
+            AlreadyExists => String::from("A repository with this ID already exists."),
             NotAllowed => String::from("You are not allowed to do this."),
             ValueError => String::from("One of the field values given is invalid."),
-            NotFound => String::from("No document with this path has been found."),
+            NotFound => String::from("No repository with this ID has been found."),
             _ => String::from("An unspecified error has occured"),
         }
     }

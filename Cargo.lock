@@ -3261,6 +3261,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "xsu-bulb"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-extra",
+ "axum-macros",
+ "dotenv",
+ "regex",
+ "serde",
+ "serde_json",
+ "tokio",
+ "xsu-authman",
+ "xsu-dataman",
+]
+
+[[package]]
 name = "xsu-cliff"
 version = "0.1.2"
 dependencies = [
