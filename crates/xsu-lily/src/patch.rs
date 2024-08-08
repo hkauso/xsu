@@ -129,7 +129,10 @@ impl Patch {
     }
 
     /// Render the patch into an array of strings
-    pub fn render(&self) -> Vec<String> {
+    ///
+    /// # Arguments
+    /// * `long` - if long patches (more than 150 changes) will be rendered
+    pub fn render(&self, long: bool) -> Vec<String> {
         let mut patches = Vec::new();
         let mut total_changes = 0;
         let mut total_additions = 0;
@@ -154,6 +157,35 @@ impl Patch {
             );
 
             let mut out = String::new();
+
+            if (file.1 .1.len() > 150) && (long == false) {
+                out.push_str(&format!(
+                    "\x1b[94m\u{0098}{}\u{009C} {} @@\x1b[0m \x1b[2m\u{2022} \u{0002}Large diffs are not rendered by default. ({})\u{0003}\n\x1b[0m",
+                    1,
+                    " ".repeat(spacing - 1 - 1),
+                    file.1 .1.len()
+                ));
+
+                // create footer
+                let summary = file.1.summary();
+
+                let mut footer = "\x1b[0m\u{0097}\n\x1b[1m".to_string();
+                footer.push_str(&"=".repeat(file.0.len() + 1));
+                footer.push_str(&format!(
+                    "\x1b[0m\n{} total changes \u{2022} \x1b[92m{} additions\x1b[0m \u{2022} \x1b[91m{} deletions\x1b[0m",
+                    summary.0, // total
+                    summary.1, // additions
+                    summary.2, // deletions
+                ));
+
+                total_changes += summary.0;
+                total_additions += summary.1;
+                total_deletions += summary.2;
+
+                // ...
+                patches.push(format!("{header}{out}{footer}"));
+                continue;
+            }
 
             let changes_iter = file.1 .1.iter();
             let mut consumed = Vec::new();
@@ -233,7 +265,7 @@ impl Patch {
     }
 
     /// Render the patch into an array of HTML strings
-    pub fn render_html(&self) -> Vec<String> {
+    pub fn render_html(&self, long: bool) -> Vec<String> {
         let replacements = vec![
             // &gt;
             (">", "&gt;"),
@@ -287,7 +319,7 @@ impl Patch {
         ];
 
         // render for terminal
-        let terminal_render = self.render();
+        let terminal_render = self.render(long);
 
         // edit output
         let mut out = Vec::new();

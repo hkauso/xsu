@@ -36,6 +36,8 @@ enum Commands {
     },
     /// Create a new branch and switch to it (or switch to an existing branch)
     Checkout { name: String },
+    /// Set the remote location
+    Remote { url: String },
     /// View a commit diff
     Diff {
         /// The ID of the commit
@@ -43,6 +45,9 @@ enum Commands {
         /// If we should return the diff as HTML
         #[arg(short = 'H', long, action = ArgAction::SetTrue)]
         html: bool,
+        /// If large diffs should be rendered
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        long: bool,
     },
     /// View the difference between two files
     FDiff {
@@ -148,15 +153,19 @@ async fn lily<'a>() -> Result<&'a str> {
             garden.set_branch(name.clone()).await;
             Ok("Finished.")
         }
-        #[rustfmt::ignore]
-        Commands::Diff { commit, html } => {
+        Commands::Remote { url } => {
+            let mut garden = Garden::new().await;
+            garden.set_remote(url.clone()).await;
+            Ok("Finished.")
+        }
+        Commands::Diff { commit, html, long } => {
             let garden = Garden::new().await;
 
             if let Ok(commit) = garden.get_commit(commit.to_string()).await {
                 for output in if html == &true {
-                    commit.content.render_html()
+                    commit.content.render_html(long.to_owned())
                 } else {
-                    commit.content.render()
+                    commit.content.render(long.to_owned())
                 } {
                     println!("{output}");
                 }
@@ -178,9 +187,9 @@ async fn lily<'a>() -> Result<&'a str> {
             );
 
             for output in if html == &true {
-                patch.render_html()
+                patch.render_html(true)
             } else {
-                patch.render()
+                patch.render(true)
             } {
                 println!("{output}")
             }

@@ -67,7 +67,7 @@ impl Commit {
     }
 
     /// Render the commit to an HTML string
-    pub fn render(&self) -> String {
+    pub fn render(&self, long: bool) -> String {
         let mut out = String::new();
 
         // add header
@@ -76,23 +76,29 @@ impl Commit {
                 <h3>{}</h3>
                 <span class=\"lily:commit_status_line\">
                     <a href=\"../index.html\">&lt; Back</a> \u{2022} 
-                    <a href=\"../../../objects/{}\" download=\"{}.tar.gz\">Download</a> \u{2022} 
                     <span class=\"lily:commit_branch\">{}</span> \u{2022} 
                     <span class=\"lily:commit_author\">{}</span> \u{2022} 
-                    <span class=\"lily:commit_timestamp\">{}</span>
+                    <span class=\"lily:timestamp\">{}</span>
                 </span>
                 <hr />
+                <p class=\"lily:commit_message\">{}</p>
+                <hr />
             </header>",
-            self.id, self.id, self.id, self.branch, self.author, self.timestamp
+            self.id, self.branch, self.author, self.timestamp, self.message
         ));
 
         // add patch
-        for file in self.content.render_html() {
+        for file in self.content.render_html(long) {
             out.push_str(&file);
         }
 
         // return
         out
+    }
+
+    /// Get the short ID of the commit
+    pub fn short(&self) -> String {
+        self.id.chars().take(10).collect()
     }
 }
 
@@ -117,13 +123,18 @@ impl Default for GardenBranchConfig {
 /// Information about a [`Garden`]
 #[derive(Clone, Serialize, Deserialize)]
 pub struct GardenInfo {
+    /// Configuration for garden branches
     pub branch: GardenBranchConfig,
+    /// The URL of the remote repository to sync to
+    #[serde(default)]
+    pub remote: String,
 }
 
 impl Default for GardenInfo {
     fn default() -> Self {
         Self {
             branch: GardenBranchConfig::default(),
+            remote: String::new(),
         }
     }
 }
@@ -243,7 +254,9 @@ impl Garden {
         let commits = self.get_all_commits(branch.clone()).await.unwrap();
 
         let mut commits_index = String::new(); // list of all commits
-        commits_index.push_str("<ul>");
+        commits_index.push_str(
+            "<table><thead><tr><th>ID</th><th>Branch</th><th>Author</th><th>Timestamp</th></tr></thead><tbody>",
+        );
 
         for commit in &commits {
             fs::mkdir(format!(".garden/web/{branch}/commits/{}", commit.id)).unwrap(); // commit meta stuff
@@ -251,10 +264,20 @@ impl Garden {
 
             // add to index
             commits_index.push_str(&format!(
-                "<li class=\"lily:commit_listing\" role=\"file\">
-                    <a href=\"{}/index.html\">{}</a> (<a href=\"{}/tree.html\">tree</a>)
-                </li>",
-                commit.id, commit.id, commit.id
+                "<tr class=\"lily:commit_listing\" role=\"commit\">
+                    <td>
+                        <a href=\"{}/index.html\">{}</a> (<a href=\"{}/tree.html\">tree</a>)
+                    </td>
+                    <td>{}</td>
+                    <td>{}</td>
+                    <td class=\"lily:timestamp\">{}</td>
+                </tr>",
+                commit.id,
+                commit.short(),
+                commit.id,
+                commit.branch,
+                commit.author,
+                commit.timestamp
             ));
 
             // render main commit page
@@ -264,11 +287,11 @@ impl Garden {
                 println!("{path}");
             }
 
-            fs::write(path, commit.render()).unwrap();
+            fs::write(path, commit.render(false)).unwrap();
 
             // render file index
             let mut file_index = String::new(); // listing of all files
-            file_index.push_str("<a href=\"index.html\">&lt; Back</a><ul>");
+            file_index.push_str("<a href=\"index.html\">&lt; Back</a><table><thead><tr><th>Path</th><th>Commit</th><th>Branch</th></tr></thead><tbody>");
 
             let commit_pack = Pack::from_file(commit.get_object());
 
@@ -324,14 +347,20 @@ impl Garden {
 
                 // add to index
                 file_index.push_str(&format!(
-                    "<li class=\"lily:file_listing\" role=\"file\"><a href=\"tree/{}.html\">{}</a></li>",
+                    "<tr class=\"lily:file_listing\" role=\"file\">
+                        <td><a href=\"tree/{}.html\">{}</a></td>
+                        <td>{}</td>
+                        <td>{}</td>
+                    </tr>",
                     file.0.replace("/", ">"),
-                    file.0
+                    file.0,
+                    commit.short(),
+                    commit.branch
                 ))
             }
 
             // finish file index
-            file_index.push_str("</ul>");
+            file_index.push_str("</tbody></table>");
             fs::write(
                 format!(".garden/web/{branch}/commits/{}/tree.html", commit.id),
                 file_index,
@@ -340,7 +369,7 @@ impl Garden {
         }
 
         // finish commits index
-        commits_index.push_str("</ul>");
+        commits_index.push_str("</tbody></table>");
         fs::write(
             format!(".garden/web/{branch}/commits/index.html"),
             commits_index,
@@ -472,6 +501,20 @@ impl Garden {
                 }
             }
         }
+    }
+
+    // Set the current remote
+    ///
+    /// # Arguments
+    /// * `url` - the url of the remote
+    pub async fn set_remote(&mut self, url: String) -> () {
+        self.info.remote = url;
+
+        fs::write(
+            format!(".garden/info"),
+            toml::to_string_pretty(&self.info).unwrap(),
+        )
+        .unwrap()
     }
 
     // branches
@@ -779,7 +822,11 @@ impl Garden {
 
             // ...
             file_names.push(file.clone());
-            let file_patch = Patch::from_file(file.clone(), previous, fs::read(file).unwrap());
+            let file_patch = Patch::from_file(
+                file.clone(),
+                previous,
+                fs::read(file).unwrap_or(String::new()),
+            );
 
             for file in file_patch.files {
                 // if the file literally did not change then we should skip here!
