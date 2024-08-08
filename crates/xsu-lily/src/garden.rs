@@ -6,6 +6,7 @@ use crate::patch::Patch;
 
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::io::Read;
 use serde::{Serialize, Deserialize};
 
 use xsu_util::fs;
@@ -21,6 +22,8 @@ pub struct Branch {
     pub id: String,
     /// A name to make the branch easier to reference, doesn't even have to be unique
     pub name: String,
+    /// A [`u128`] ID which denotes the time the branch was created
+    pub timestamp: u128,
 }
 
 /// A change to the garden state
@@ -197,8 +200,9 @@ impl Garden {
 
         let _ = sqlquery(
             "CREATE TABLE IF NOT EXISTS \"branches\" (
-                id   TEXT,
-                name TEXT
+                id        TEXT,
+                name      TEXT,
+                timestamp TEXT
             )",
         )
         .execute(c)
@@ -223,6 +227,9 @@ impl Garden {
         if let Err(e) = self.stage.init() {
             panic!("STAGE ERROR: {:?}", e)
         }
+
+        // create initial branch
+        self.create_branch("main".to_string()).await.unwrap();
     }
 
     /// Render the garden to HTML and write it to `.garden/web/{branch}`
@@ -275,12 +282,12 @@ impl Garden {
                          <h3>{}</h3>
                         <span class=\"lily:file_status_line\">
                             <span class=\"lily:file_index_link\"><a href=\"../tree.html\">&lt; Back</a></span> \u{2022} 
-                            <span class=\"lily:file_commit\"><a href=\"../../commits/{}.html\">{}</a></span> \u{2022} 
+                            <span class=\"lily:file_commit\"><a href=\"../tree.html\">{}</a></span> \u{2022} 
                             <span class=\"lily:file_branch\">{}</span>
                         </span>
                         <hr />
                     </header>",
-                    file.0, commit.id, commit.id, commit.branch
+                    file.0, commit.id, commit.branch
                 ));
 
                 // add file
@@ -341,12 +348,138 @@ impl Garden {
         .unwrap();
     }
 
+    /// Convert the garden database into plain files for [`Pack`]ing
+    pub async fn serialize(&self, verbose: bool) -> () {
+        fs::rmdirr(".garden/bin").unwrap(); // clear existing
+        fs::mkdir(".garden/bin").unwrap();
+        fs::mkdir(".garden/bin/branches").unwrap();
+
+        // get branches
+        for branch in self.get_all_branches().await.unwrap() {
+            let path = format!(".garden/bin/branches/{}", branch.name);
+
+            if verbose {
+                println!("{path}");
+            }
+
+            fs::mkdir(&path).unwrap();
+            fs::mkdir(format!("{path}/commits")).unwrap();
+
+            // get commits
+            let commits = self.get_all_commits(branch.name.clone()).await.unwrap();
+
+            for commit in commits {
+                let path = format!("{path}/commits/{}.json.gz", commit.id);
+
+                if verbose {
+                    println!("{path}");
+                }
+
+                fs::write(
+                    path,
+                    Pack::from_string(serde_json::to_string(&commit).unwrap()),
+                )
+                .unwrap();
+            }
+
+            // write branch
+            fs::write(
+                format!("{path}/branch.json"),
+                serde_json::to_string(&branch).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+
+    /// Convert a serialized garden database into a SQLite file
+    pub async fn deserialize(&self, path: String, verbose: bool) -> () {
+        // get branches
+        for branch in fs::read_dir(format!("{path}/branches")).unwrap() {
+            let branch = branch.unwrap().file_name().into_string().unwrap();
+            let branch_data: Branch = serde_json::from_str(
+                &fs::read(format!("{path}/branches/{branch}/branch.json")).unwrap(),
+            )
+            .unwrap();
+
+            let path = format!(".garden/bin/branches/{}", branch);
+
+            if verbose {
+                println!("{path}");
+            }
+
+            // create branch
+            let query: &str =
+                if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                    "INSERT INTO \"branches\" VALUES (?, ?, ?)"
+                } else {
+                    "INSERT INTO \"branches\" VALUES ($1, $2, $3)"
+                };
+
+            let c = &self.base.db.client;
+            if let Err(e) = sqlquery(query)
+                .bind::<&String>(&branch_data.id)
+                .bind::<&String>(&branch_data.name)
+                .bind::<&String>(&branch_data.timestamp.to_string())
+                .execute(c)
+                .await
+            {
+                panic!("{e}")
+            }
+
+            // get commits
+            for commit in fs::read_dir(format!("{path}/commits")).unwrap() {
+                let commit = commit.unwrap().file_name().into_string().unwrap();
+
+                let mut bytes = Vec::new();
+                for byte in File::bytes(File::open(format!("{path}/commits/{commit}")).unwrap()) {
+                    // why?
+                    bytes.push(byte.unwrap());
+                }
+
+                let commit_data: Commit = serde_json::from_str(&Pack::decode_vec(bytes)).unwrap();
+
+                let path = format!("{path}/commits/{commit}");
+
+                if verbose {
+                    println!("{path}");
+                }
+
+                // create commit
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "INSERT INTO \"commits\" VALUES (?, ?, ?, ?, ?, ?)"
+                    } else {
+                        "INSERT INTO \"commits\" VALUES ($1, $2, $3, $5, $6)"
+                    };
+
+                let c = &self.base.db.client;
+                if let Err(e) = sqlquery(query)
+                    .bind::<&String>(&commit_data.id)
+                    .bind::<&String>(&commit_data.branch)
+                    .bind::<&String>(&commit_data.timestamp.to_string())
+                    .bind::<&String>(&commit_data.author)
+                    .bind::<&String>(&commit_data.message)
+                    .bind::<&[u8]>(&Pack::from_string(
+                        match serde_json::to_string(&commit_data.content) {
+                            Ok(m) => m,
+                            Err(e) => panic!("{e}"),
+                        },
+                    ))
+                    .execute(c)
+                    .await
+                {
+                    panic!("{e}")
+                }
+            }
+        }
+    }
+
     // branches
 
     // GET
     /// Get a [`Branch`] by its ID
     ///
-    /// # Arguments:
+    /// # Arguments
     /// * `id` - `String` of the branch ID
     pub async fn get_branch(&self, id: String) -> Result<Branch> {
         // fetch from database
@@ -366,19 +499,81 @@ impl Garden {
         Ok(Branch {
             id: row.get("id").unwrap().to_string(),
             name: row.get("name").unwrap().to_string(),
+            timestamp: row.get("timestamp").unwrap().parse::<u128>().unwrap(),
         })
+    }
+
+    /// Get a [`Branch`] by its name
+    ///
+    /// # Arguments
+    /// * `name` - `String` of the branch name
+    pub async fn get_branch_by_name(&self, name: String) -> Result<Branch> {
+        // fetch from database
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+            "SELECT * FROM \"branches\" WHERE \"name\" = ?"
+        } else {
+            "SELECT * FROM \"branches\" WHERE \"name\" = $1"
+        };
+
+        let c = &self.base.db.client;
+        let row = match sqlquery(query).bind::<&String>(&name).fetch_one(c).await {
+            Ok(u) => self.base.textify_row(u, Vec::new()).0,
+            Err(_) => return Err(LilyError::Other),
+        };
+
+        // return
+        Ok(Branch {
+            id: row.get("id").unwrap().to_string(),
+            name: row.get("name").unwrap().to_string(),
+            timestamp: row.get("timestamp").unwrap().parse::<u128>().unwrap(),
+        })
+    }
+
+    /// Get all branches stored in the database
+    pub async fn get_all_branches(&self) -> Result<Vec<Branch>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"branches\" ORDER BY \"timestamp\" DESC"
+        } else {
+            "SELECT * FROM \"branches\" ORDER BY \"timestamp\" DESC"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).fetch_all(c).await {
+            Ok(p) => {
+                let mut out = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+
+                    out.push(Branch {
+                        id: res.get("id").unwrap().to_string(),
+                        name: res.get("name").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                    })
+                }
+
+                out
+            }
+            Err(_) => return Err(LilyError::Other),
+        };
+
+        // return
+        Ok(res)
     }
 
     // SET
     /// Create a new [`Branch`]
     ///
-    /// # Arguments:
+    /// # Arguments
     /// * `name` - the name of the branch
     pub async fn create_branch(&self, name: String) -> Result<String> {
         let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
-            "INSERT INTO \"branches\" VALUES (?, ?)"
+            "INSERT INTO \"branches\" VALUES (?, ?, ?)"
         } else {
-            "INSERT INTO \"branches\" VALUES ($1, $2)"
+            "INSERT INTO \"branches\" VALUES ($1, $2, $3)"
         };
 
         let id: String = utility::random_id();
@@ -387,12 +582,27 @@ impl Garden {
         match sqlquery(query)
             .bind::<&String>(&id)
             .bind::<&String>(&name)
+            .bind::<&String>(&utility::unix_epoch_timestamp().to_string())
             .execute(c)
             .await
         {
             Ok(_) => Ok(id),
             Err(_) => Err(LilyError::Other),
         }
+    }
+
+    /// Set the current branch
+    ///
+    /// # Arguments
+    /// * `name` - the name of the branch
+    pub async fn set_branch(&mut self, name: String) -> () {
+        self.info.branch.current = name;
+
+        fs::write(
+            format!(".garden/info"),
+            toml::to_string_pretty(&self.info).unwrap(),
+        )
+        .unwrap()
     }
 
     // TODO: delete branch
@@ -402,7 +612,7 @@ impl Garden {
     // GET
     /// Get an existing [`Commit`]
     ///
-    /// ## Arguments:
+    /// ## Arguments
     /// * `id` - the ID of the commit to select
     pub async fn get_commit(&self, id: String) -> Result<Commit> {
         // pull from database
@@ -480,6 +690,9 @@ impl Garden {
     }
 
     /// Get all commits stored in the database
+    ///
+    /// # Arguments
+    /// * `branch` - the name of the branch to filter by
     pub async fn get_all_commits(&self, branch: String) -> Result<Vec<Commit>> {
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
@@ -528,7 +741,7 @@ impl Garden {
     // SET
     /// Create a new [`Commit`]
     ///
-    /// # Arguments:
+    /// # Arguments
     /// * `branch` - the branch of the commit
     /// * `message` - the message of the commit
     /// * `author` - the author of the commit

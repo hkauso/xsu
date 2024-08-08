@@ -50,13 +50,8 @@ impl Pack {
         archive
             .append_dir_all("objects", ".garden/objects")
             .unwrap();
-        archive.append_dir_all("www", ".garden/www").unwrap();
-        archive
-            .append_path_with_name(".garden/lily.db", "lily.db")
-            .unwrap();
-        archive
-            .append_path_with_name(".garden/info", "info")
-            .unwrap();
+        // archive.append_dir_all("www", ".garden/www").unwrap();
+        archive.append_dir_all("bin", ".garden/bin").unwrap();
 
         archive.finish().unwrap(); // finish the pack
 

@@ -34,6 +34,8 @@ enum Commands {
         #[arg(short, long)]
         message: String,
     },
+    /// Create a new branch and switch to it (or switch to an existing branch)
+    Checkout { name: String },
     /// View a commit diff
     Diff {
         /// The ID of the commit
@@ -51,10 +53,21 @@ enum Commands {
         html: bool,
     },
     /// Create a repo pack
-    RPack { name: String },
+    Pack { name: String },
     /// Render garden HTML
     Render {
         branch: String,
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        verbose: bool,
+    },
+    /// Create a serialized version of the main database file
+    Bin {
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        verbose: bool,
+    },
+    /// Take the generated bin at the given path and fill it into the main database (see: `bin`)
+    Extract {
+        path: String,
         #[arg(short, long, action = ArgAction::SetTrue)]
         verbose: bool,
     },
@@ -124,6 +137,17 @@ async fn lily<'a>() -> Result<&'a str> {
 
             Err(Error::new(ErrorKind::Other, "Failed to create commit."))
         }
+        Commands::Checkout { name } => {
+            let mut garden = Garden::new().await;
+
+            if let Err(_) = garden.get_branch_by_name(name.clone()).await {
+                // create branch
+                garden.create_branch(name.clone()).await.unwrap();
+            };
+
+            garden.set_branch(name.clone()).await;
+            Ok("Finished.")
+        }
         #[rustfmt::ignore]
         Commands::Diff { commit, html } => {
             let garden = Garden::new().await;
@@ -163,13 +187,25 @@ async fn lily<'a>() -> Result<&'a str> {
 
             Ok("Finished.")
         }
-        Commands::RPack { name } => {
+        Commands::Pack { name } => {
             println!("{}", Pack::from_repo(name.to_owned()).await.0);
             Ok("Finished.")
         }
         Commands::Render { branch, verbose } => {
             let garden = Garden::new().await;
             garden.render(branch.to_owned(), verbose.to_owned()).await;
+            Ok("Finished.")
+        }
+        Commands::Bin { verbose } => {
+            let garden = Garden::new().await;
+            garden.serialize(verbose.to_owned()).await;
+            Ok("Finished.")
+        }
+        Commands::Extract { path, verbose } => {
+            let garden = Garden::new().await;
+            garden
+                .deserialize(path.to_owned(), verbose.to_owned())
+                .await;
             Ok("Finished.")
         }
     }
