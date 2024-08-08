@@ -11,8 +11,8 @@ pub struct Pack(pub String);
 
 impl Pack {
     /// Create a new [`Pack`]
-    pub fn new(files: Vec<String>, hash: String) -> Self {
-        let path = format!(".garden/objects/{hash}");
+    pub fn new(path: String, files: Vec<String>, hash: String) -> Self {
+        let path = format!("{path}/{hash}");
         let file = File::create(&path).unwrap();
 
         let enc = GzEncoder::new(file, Compression::default());
@@ -39,29 +39,31 @@ impl Pack {
     }
 
     /// Create a [`Pack`] of the entire `.garden` directory
-    pub async fn from_repo(name: String) -> Self {
-        let path = format!("{name}.repo");
-        let file = File::create(&path).unwrap();
+    pub async fn from_repo(path: String, name: String) -> Self {
+        let arpath = format!("{name}.repo");
+        let file = File::create(&arpath).unwrap();
 
         let enc = GzEncoder::new(file, Compression::default());
         let mut archive = Builder::new(enc);
 
         // get files
         archive
-            .append_dir_all("objects", ".garden/objects")
+            .append_dir_all("objects", format!("{path}/.garden/objects"))
             .unwrap();
-        // archive.append_dir_all("www", ".garden/www").unwrap();
-        archive.append_dir_all("bin", ".garden/bin").unwrap();
+        // archive.append_dir_all("www", format!("{path}/.garden/www")).unwrap();
+        archive
+            .append_dir_all("bin", format!("{path}/.garden/bin"))
+            .unwrap();
 
         archive.finish().unwrap(); // finish the pack
 
         // return the pack
-        Self(path)
+        Self(arpath)
     }
 
     /// Read a [`Pack`] from its hash
-    pub fn from_hash(hash: String) -> BTreeMap<String, String> {
-        Pack::from_file(File::open(format!(".garden/objects/{hash}")).unwrap())
+    pub fn from_hash(path: String, hash: String) -> BTreeMap<String, String> {
+        Pack::from_file(File::open(format!("{path}/.garden/objects/{hash}")).unwrap())
     }
 
     /// Read a [`Pack`] from a [`File`]

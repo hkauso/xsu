@@ -3274,6 +3274,8 @@ dependencies = [
  "tokio",
  "xsu-authman",
  "xsu-dataman",
+ "xsu-lily",
+ "xsu-util",
 ]
 
 [[package]]

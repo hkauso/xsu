@@ -61,9 +61,9 @@ impl Default for Commit {
 
 impl Commit {
     /// Get the gzip archive object file for the commit
-    pub fn get_object(&self) -> File {
-        File::open(format!(".garden/objects/{}", self.id))
-            .unwrap_or(File::open(".garden/objects/blank").unwrap())
+    pub fn get_object(&self, source: String) -> File {
+        File::open(format!("{source}/.garden/objects/{}", self.id))
+            .unwrap_or(File::open(format!("{source}/.garden/objects/blank")).unwrap())
     }
 
     /// Render the commit to an HTML string
@@ -147,9 +147,9 @@ pub struct Garden {
     /// The info file
     pub info: GardenInfo,
     /// The `lily.db` connection pool
-    pub base: xsu_dataman::StarterDatabase,
+    pub base: Option<xsu_dataman::StarterDatabase>,
     /// The `tracker.db` connection pool
-    pub tracker: xsu_dataman::StarterDatabase,
+    pub tracker: Option<xsu_dataman::StarterDatabase>,
     /// The stagefile
     pub stage: Stage,
     /// The localfdile
@@ -158,56 +158,101 @@ pub struct Garden {
 
 impl Garden {
     /// Create a new [`Garden`]
-    pub async fn new() -> Self {
-        if let Err(_) = fs::read_dir(".garden") {
-            fs::mkdir(".garden").unwrap();
-            fs::mkdir(".garden/objects").unwrap();
+    pub async fn new(path: String) -> Self {
+        if let Err(_) = fs::read_dir(format!("{path}/.garden")) {
+            fs::mkdir(format!("{path}/.garden")).unwrap();
+            fs::mkdir(format!("{path}/.garden/objects")).unwrap();
 
-            if let Err(_) = File::open(".garden/objects/blank") {
+            if let Err(_) = File::open(format!("{path}/.garden/objects/blank")) {
                 // create blank pack with no files just so we don't panic
-                Pack::new(Vec::new(), "blank".to_string());
+                Pack::new(
+                    format!("{path}/.garden/objects"),
+                    Vec::new(),
+                    "blank".to_string(),
+                );
             }
 
-            fs::touch(".garden/lily.db").unwrap();
-            fs::touch(".garden/tracker.db").unwrap();
+            fs::touch(format!("{path}/.garden/lily.db")).unwrap();
+            fs::touch(format!("{path}/.garden/tracker.db")).unwrap();
 
             fs::write(
-                ".garden/info",
+                format!("{path}/.garden/info"),
                 toml::to_string_pretty(&GardenInfo::default()).unwrap(),
             )
             .unwrap();
 
-            fs::touch(".garden/stagefile").unwrap(); // files that are waiting to be included with a commit
-            fs::touch(".garden/localfile").unwrap(); // commit hashes that haven't been synced to remote yet
+            fs::touch(format!("{path}/.garden/stagefile")).unwrap(); // files that are waiting to be included with a commit
+            fs::touch(format!("{path}/.garden/localfile")).unwrap(); // commit hashes that haven't been synced to remote yet
         }
 
         // ...
+        let source = fs::canonicalize(path)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
         Self {
-            source: fs::canonicalize("./")
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-            info: toml::from_str(&fs::read(format!(".garden/info")).unwrap()).unwrap(),
-            base: StarterDatabase::new(DatabaseOpts {
-                name: format!(".garden/lily"),
-                ..Default::default()
-            })
-            .await,
-            tracker: StarterDatabase::new(DatabaseOpts {
-                name: format!(".garden/tracker"),
-                ..Default::default()
-            })
-            .await,
-            stage: Stage(".garden/stagefile".to_string()),
-            local: LocalStage(".garden/stagefile".to_string()),
+            source: source.clone(),
+            info: toml::from_str(&fs::read(format!("{source}/.garden/info")).unwrap()).unwrap(),
+            base: Some(
+                StarterDatabase::new(DatabaseOpts {
+                    name: format!("{source}/.garden/lily"),
+                    ..Default::default()
+                })
+                .await,
+            ),
+            tracker: Some(
+                StarterDatabase::new(DatabaseOpts {
+                    name: format!("{source}/.garden/tracker"),
+                    ..Default::default()
+                })
+                .await,
+            ),
+            stage: Stage(format!("{source}/.garden/stagefile")),
+            local: LocalStage(format!("{source}/.garden/stagefile")),
+        }
+    }
+
+    /// Create a new bare garden (no databases or stages)
+    ///
+    /// # Arguments
+    /// * `path` - the path to the garden
+    pub fn bare(path: String) -> Self {
+        if let Err(_) = fs::read_dir(format!("{path}/.garden")) {
+            fs::mkdir(format!("{path}/.garden")).unwrap();
+            fs::mkdir(format!("{path}/.garden/objects")).unwrap();
+
+            fs::write(
+                format!("{path}/.garden/info"),
+                toml::to_string_pretty(&GardenInfo::default()).unwrap(),
+            )
+            .unwrap();
+        }
+
+        // ...
+        let source = fs::canonicalize(path)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        Self {
+            source: source.clone(),
+            info: toml::from_str(&fs::read(format!("{}/.garden/info", source)).unwrap()).unwrap(),
+            base: None,
+            tracker: None,
+            stage: Stage(String::new()),
+            local: LocalStage(String::new()),
         }
     }
 
     /// Init garden database
     pub async fn init(&self) -> () {
+        let base = &self.base.as_ref().unwrap();
+
         // base
-        let c = &self.base.db.client;
+        let c = &base.db.client;
 
         let _ = sqlquery(
             "CREATE TABLE IF NOT EXISTS \"branches\" (
@@ -245,10 +290,10 @@ impl Garden {
 
     /// Render the garden to HTML and write it to `.garden/web/{branch}`
     pub async fn render(&self, branch: String, verbose: bool) -> () {
-        fs::mkdir(".garden/web").unwrap();
-        fs::rmdirr(format!(".garden/web/{branch}")).unwrap(); // clear web/branch directory recursively
-        fs::mkdir(format!(".garden/web/{branch}")).unwrap();
-        fs::mkdir(format!(".garden/web/{branch}/commits")).unwrap();
+        fs::mkdir(format!("{}/.garden/web", self.source)).unwrap();
+        fs::rmdirr(format!("{}/.garden/web/{branch}", self.source)).unwrap(); // clear web/branch directory recursively
+        fs::mkdir(format!("{}/.garden/web/{branch}", self.source)).unwrap();
+        fs::mkdir(format!("{}/.garden/web/{branch}/commits", self.source)).unwrap();
 
         // render commits
         let commits = self.get_all_commits(branch.clone()).await.unwrap();
@@ -259,8 +304,19 @@ impl Garden {
         );
 
         for commit in &commits {
-            fs::mkdir(format!(".garden/web/{branch}/commits/{}", commit.id)).unwrap(); // commit meta stuff
-            fs::mkdir(format!(".garden/web/{branch}/commits/{}/tree", commit.id)).unwrap(); // commit files
+            // commit meta stuff
+            fs::mkdir(format!(
+                "{}/.garden/web/{branch}/commits/{}",
+                self.source, commit.id
+            ))
+            .unwrap();
+
+            // commit files
+            fs::mkdir(format!(
+                "{}/.garden/web/{branch}/commits/{}/tree",
+                self.source, commit.id
+            ))
+            .unwrap();
 
             // add to index
             commits_index.push_str(&format!(
@@ -281,7 +337,10 @@ impl Garden {
             ));
 
             // render main commit page
-            let path = format!(".garden/web/{branch}/commits/{}/index.html", commit.id);
+            let path = format!(
+                "{}/.garden/web/{branch}/commits/{}/index.html",
+                self.source, commit.id
+            );
 
             if verbose {
                 println!("{path}");
@@ -293,7 +352,7 @@ impl Garden {
             let mut file_index = String::new(); // listing of all files
             file_index.push_str("<a href=\"index.html\">&lt; Back</a><table><thead><tr><th>Path</th><th>Commit</th><th>Branch</th></tr></thead><tbody>");
 
-            let commit_pack = Pack::from_file(commit.get_object());
+            let commit_pack = Pack::from_file(commit.get_object(self.source.clone()));
 
             // render files
             for file in commit_pack {
@@ -334,7 +393,8 @@ impl Garden {
 
                 // write
                 let path = format!(
-                    ".garden/web/{branch}/commits/{}/tree/{}.html",
+                    "{}/.garden/web/{branch}/commits/{}/tree/{}.html",
+                    self.source,
                     commit.id,
                     file.0.replace("/", ">")
                 );
@@ -362,7 +422,10 @@ impl Garden {
             // finish file index
             file_index.push_str("</tbody></table>");
             fs::write(
-                format!(".garden/web/{branch}/commits/{}/tree.html", commit.id),
+                format!(
+                    "{}/.garden/web/{branch}/commits/{}/tree.html",
+                    self.source, commit.id
+                ),
                 file_index,
             )
             .unwrap();
@@ -371,7 +434,7 @@ impl Garden {
         // finish commits index
         commits_index.push_str("</tbody></table>");
         fs::write(
-            format!(".garden/web/{branch}/commits/index.html"),
+            format!("{}/.garden/web/{branch}/commits/index.html", self.source),
             commits_index,
         )
         .unwrap();
@@ -379,13 +442,13 @@ impl Garden {
 
     /// Convert the garden database into plain files for [`Pack`]ing
     pub async fn serialize(&self, verbose: bool) -> () {
-        fs::rmdirr(".garden/bin").unwrap(); // clear existing
-        fs::mkdir(".garden/bin").unwrap();
-        fs::mkdir(".garden/bin/branches").unwrap();
+        fs::rmdirr(format!("{}/.garden/bin", self.source)).unwrap(); // clear existing
+        fs::mkdir(format!("{}/.garden/bin", self.source)).unwrap();
+        fs::mkdir(format!("{}/.garden/bin/branches", self.source)).unwrap();
 
         // get branches
         for branch in self.get_all_branches().await.unwrap() {
-            let path = format!(".garden/bin/branches/{}", branch.name);
+            let path = format!("{}/.garden/bin/branches/{}", self.source, branch.name);
 
             if verbose {
                 println!("{path}");
@@ -430,21 +493,21 @@ impl Garden {
             )
             .unwrap();
 
-            let path = format!(".garden/bin/branches/{}", branch);
+            let path = format!("{}/.garden/bin/branches/{}", self.source, branch);
 
             if verbose {
                 println!("{path}");
             }
 
             // create branch
-            let query: &str =
-                if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
-                    "INSERT INTO \"branches\" VALUES (?, ?, ?)"
-                } else {
-                    "INSERT INTO \"branches\" VALUES ($1, $2, $3)"
-                };
+            let base = &self.base.as_ref().unwrap();
+            let query: &str = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
+                "INSERT INTO \"branches\" VALUES (?, ?, ?)"
+            } else {
+                "INSERT INTO \"branches\" VALUES ($1, $2, $3)"
+            };
 
-            let c = &self.base.db.client;
+            let c = &base.db.client;
             if let Err(e) = sqlquery(query)
                 .bind::<&String>(&branch_data.id)
                 .bind::<&String>(&branch_data.name)
@@ -474,14 +537,13 @@ impl Garden {
                 }
 
                 // create commit
-                let query: &str =
-                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
-                        "INSERT INTO \"commits\" VALUES (?, ?, ?, ?, ?, ?)"
-                    } else {
-                        "INSERT INTO \"commits\" VALUES ($1, $2, $3, $5, $6)"
-                    };
+                let query: &str = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
+                    "INSERT INTO \"commits\" VALUES (?, ?, ?, ?, ?, ?)"
+                } else {
+                    "INSERT INTO \"commits\" VALUES ($1, $2, $3, $5, $6)"
+                };
 
-                let c = &self.base.db.client;
+                let c = &base.db.client;
                 if let Err(e) = sqlquery(query)
                     .bind::<&String>(&commit_data.id)
                     .bind::<&String>(&commit_data.branch)
@@ -511,7 +573,7 @@ impl Garden {
         self.info.remote = url;
 
         fs::write(
-            format!(".garden/info"),
+            format!("{}/.garden/info", self.source),
             toml::to_string_pretty(&self.info).unwrap(),
         )
         .unwrap()
@@ -526,15 +588,16 @@ impl Garden {
     /// * `id` - `String` of the branch ID
     pub async fn get_branch(&self, id: String) -> Result<Branch> {
         // fetch from database
-        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+        let base = &self.base.as_ref().unwrap();
+        let query: &str = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "SELECT * FROM \"branches\" WHERE \"id\" = ?"
         } else {
             "SELECT * FROM \"branches\" WHERE \"id\" = $1"
         };
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         let row = match sqlquery(query).bind::<&String>(&id).fetch_one(c).await {
-            Ok(u) => self.base.textify_row(u, Vec::new()).0,
+            Ok(u) => base.textify_row(u, Vec::new()).0,
             Err(_) => return Err(LilyError::Other),
         };
 
@@ -552,15 +615,16 @@ impl Garden {
     /// * `name` - `String` of the branch name
     pub async fn get_branch_by_name(&self, name: String) -> Result<Branch> {
         // fetch from database
-        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+        let base = &self.base.as_ref().unwrap();
+        let query: &str = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "SELECT * FROM \"branches\" WHERE \"name\" = ?"
         } else {
             "SELECT * FROM \"branches\" WHERE \"name\" = $1"
         };
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         let row = match sqlquery(query).bind::<&String>(&name).fetch_one(c).await {
-            Ok(u) => self.base.textify_row(u, Vec::new()).0,
+            Ok(u) => base.textify_row(u, Vec::new()).0,
             Err(_) => return Err(LilyError::Other),
         };
 
@@ -575,21 +639,21 @@ impl Garden {
     /// Get all branches stored in the database
     pub async fn get_all_branches(&self) -> Result<Vec<Branch>> {
         // pull from database
-        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
-        {
+        let base = &self.base.as_ref().unwrap();
+        let query: String = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "SELECT * FROM \"branches\" ORDER BY \"timestamp\" DESC"
         } else {
             "SELECT * FROM \"branches\" ORDER BY \"timestamp\" DESC"
         }
         .to_string();
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         let res = match sqlquery(&query).fetch_all(c).await {
             Ok(p) => {
                 let mut out = Vec::new();
 
                 for row in p {
-                    let res = self.base.textify_row(row, Vec::new()).0;
+                    let res = base.textify_row(row, Vec::new()).0;
 
                     out.push(Branch {
                         id: res.get("id").unwrap().to_string(),
@@ -613,7 +677,8 @@ impl Garden {
     /// # Arguments
     /// * `name` - the name of the branch
     pub async fn create_branch(&self, name: String) -> Result<String> {
-        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+        let base = &self.base.as_ref().unwrap();
+        let query: &str = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "INSERT INTO \"branches\" VALUES (?, ?, ?)"
         } else {
             "INSERT INTO \"branches\" VALUES ($1, $2, $3)"
@@ -621,7 +686,7 @@ impl Garden {
 
         let id: String = utility::random_id();
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         match sqlquery(query)
             .bind::<&String>(&id)
             .bind::<&String>(&name)
@@ -642,7 +707,7 @@ impl Garden {
         self.info.branch.current = name;
 
         fs::write(
-            format!(".garden/info"),
+            format!("{}/.garden/info", self.source),
             toml::to_string_pretty(&self.info).unwrap(),
         )
         .unwrap()
@@ -659,21 +724,21 @@ impl Garden {
     /// * `id` - the ID of the commit to select
     pub async fn get_commit(&self, id: String) -> Result<Commit> {
         // pull from database
-        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
-        {
+        let base = &self.base.as_ref().unwrap();
+        let query: String = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "SELECT * FROM \"commits\" WHERE \"id\" = ?"
         } else {
             "SELECT * FROM \"commits\" WHERE \"id\" = $1"
         }
         .to_string();
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         let res = match sqlquery(&query)
             .bind::<&String>(&id.to_lowercase())
             .fetch_one(c)
             .await
         {
-            Ok(p) => self.base.textify_row(p, vec!["content".to_string()]),
+            Ok(p) => base.textify_row(p, vec!["content".to_string()]),
             Err(_) => return Err(LilyError::Other),
         };
 
@@ -699,17 +764,17 @@ impl Garden {
     /// Get a the latest existing [`Commit`]
     pub async fn get_latest_commit(&self) -> Result<Commit> {
         // pull from database
-        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
-        {
+        let base = &self.base.as_ref().unwrap();
+        let query: String = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "SELECT * FROM \"commits\" ORDER BY \"timestamp\" DESC LIMIT 1"
         } else {
             "SELECT * FROM \"commits\" ORDER BY \"timestamp\" DESC LIMIT 1"
         }
         .to_string();
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         let res = match sqlquery(&query).fetch_one(c).await {
-            Ok(p) => self.base.textify_row(p, vec!["content".to_string()]),
+            Ok(p) => base.textify_row(p, vec!["content".to_string()]),
             Err(_) => return Err(LilyError::Other),
         };
 
@@ -738,21 +803,21 @@ impl Garden {
     /// * `branch` - the name of the branch to filter by
     pub async fn get_all_commits(&self, branch: String) -> Result<Vec<Commit>> {
         // pull from database
-        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
-        {
+        let base = &self.base.as_ref().unwrap();
+        let query: String = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "SELECT * FROM \"commits\" WHERE \"branch\" = ? ORDER BY \"timestamp\" DESC"
         } else {
             "SELECT * FROM \"commits\" WHERE \"branch\" = $1 ORDER BY \"timestamp\" DESC"
         }
         .to_string();
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         let res = match sqlquery(&query).bind::<&String>(&branch).fetch_all(c).await {
             Ok(p) => {
                 let mut out = Vec::new();
 
                 for row in p {
-                    let res = self.base.textify_row(row, vec!["content".to_string()]);
+                    let res = base.textify_row(row, vec!["content".to_string()]);
 
                     let bytes_res = res.1;
                     let res = res.0;
@@ -805,7 +870,7 @@ impl Garden {
         };
 
         let latest_commit = self.get_latest_commit().await.unwrap_or_default();
-        let latest_pack = Pack::from_file(latest_commit.get_object());
+        let latest_pack = Pack::from_file(latest_commit.get_object(self.source.clone()));
         let mut file_names = Vec::new();
 
         for file in &files {
@@ -863,17 +928,22 @@ impl Garden {
         self.local.add(id.clone()).unwrap(); // since we just created this commit, chances are we haven't sent it to remote yet
 
         println!("Creating pack...");
-        Pack::new(files, id.clone());
+        Pack::new(
+            format!("{}/.garden/objects", self.source),
+            files,
+            id.clone(),
+        );
         println!("Saving commit...");
 
         // ...
-        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+        let base = &self.base.as_ref().unwrap();
+        let query: &str = if (base.db.r#type == "sqlite") | (base.db.r#type == "mysql") {
             "INSERT INTO \"commits\" VALUES (?, ?, ?, ?, ?, ?)"
         } else {
             "INSERT INTO \"commits\" VALUES ($1, $2, $3, $5, $6)"
         };
 
-        let c = &self.base.db.client;
+        let c = &base.db.client;
         match sqlquery(query)
             .bind::<&String>(&id)
             .bind::<&String>(&branch)

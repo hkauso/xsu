@@ -1,8 +1,10 @@
 use crate::model::{RepositoryCreate, DatabaseError, Repository, RepositoryMetadata};
 
+use xsu_util::fs;
 use xsu_dataman::utility;
 use xsu_dataman::query as sqlquery;
 use xsu_authman::model::{Permission, Profile};
+use xsu_lily::garden::Garden;
 
 pub type Result<T> = std::result::Result<T, DatabaseError>;
 
@@ -28,6 +30,8 @@ pub struct Database {
     pub base: xsu_dataman::StarterDatabase,
     pub auth: xsu_authman::Database,
     pub options: ServerOptions,
+    /// The location of static files
+    pub location: String,
 }
 
 impl Database {
@@ -36,10 +40,19 @@ impl Database {
         opts1: ServerOptions,
         auth: xsu_authman::Database,
     ) -> Self {
+        let home = std::env::var("HOME").expect("failed to read $HOME");
+
+        fs::mkdir(format!("{home}/.config")).unwrap();
+        fs::mkdir(format!("{home}/.config/xsu-apps")).unwrap();
+        fs::mkdir(format!("{home}/.config/xsu-apps/bulb")).unwrap();
+        fs::mkdir(format!("{home}/.config/xsu-apps/bulb/repositories")).unwrap();
+
+        // ...
         Self {
             base: xsu_dataman::StarterDatabase::new(opts).await,
             auth,
             options: opts1,
+            location: format!("{home}/.config/xsu-apps/bulb/repositories"),
         }
     }
 
@@ -249,7 +262,19 @@ impl Database {
             .execute(c)
             .await
         {
-            Ok(_) => return Ok(()),
+            Ok(_) => {
+                // create directory
+                let path = format!("{}/{}", self.location, repo.name);
+
+                if let Err(_) = fs::mkdir(&path) {
+                    return Err(DatabaseError::Other);
+                }
+
+                Garden::bare(path); // init bare repo in new directory
+
+                // ...
+                return Ok(());
+            }
             Err(_) => return Err(DatabaseError::Other),
         };
     }
@@ -306,6 +331,13 @@ impl Database {
                     .cachedb
                     .remove(format!("xsulib.bulb:{}:{}", owner, name))
                     .await;
+
+                // remove directory
+                let path = format!("{}/{}", self.location, name);
+
+                if let Err(_) = fs::rmdirr(&path) {
+                    return Err(DatabaseError::Other);
+                }
 
                 // return
                 return Ok(());

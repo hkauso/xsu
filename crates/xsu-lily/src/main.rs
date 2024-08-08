@@ -89,11 +89,11 @@ async fn lily<'a>() -> Result<&'a str> {
     // ...
     match &args.command {
         Commands::Init {} => {
-            Garden::new().await.init().await;
+            Garden::new(".".to_string()).await.init().await;
             Ok("Finished.")
         }
         Commands::Add { files } => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
 
             for file in files {
                 if file == "." {
@@ -116,12 +116,12 @@ async fn lily<'a>() -> Result<&'a str> {
             Ok("Finished.")
         }
         Commands::Clear {} => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
             garden.stage.clear()?;
             Ok("Finished.")
         }
         Commands::Commit { branch, message } => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
 
             // check author id
             if cnf.user_id.is_empty() {
@@ -143,7 +143,7 @@ async fn lily<'a>() -> Result<&'a str> {
             Err(Error::new(ErrorKind::Other, "Failed to create commit."))
         }
         Commands::Checkout { name } => {
-            let mut garden = Garden::new().await;
+            let mut garden = Garden::new(".".to_string()).await;
 
             if let Err(_) = garden.get_branch_by_name(name.clone()).await {
                 // create branch
@@ -154,12 +154,12 @@ async fn lily<'a>() -> Result<&'a str> {
             Ok("Finished.")
         }
         Commands::Remote { url } => {
-            let mut garden = Garden::new().await;
+            let mut garden = Garden::new(".".to_string()).await;
             garden.set_remote(url.clone()).await;
             Ok("Finished.")
         }
         Commands::Diff { commit, html, long } => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
 
             if let Ok(commit) = garden.get_commit(commit.to_string()).await {
                 for output in if html == &true {
@@ -197,21 +197,24 @@ async fn lily<'a>() -> Result<&'a str> {
             Ok("Finished.")
         }
         Commands::Pack { name } => {
-            println!("{}", Pack::from_repo(name.to_owned()).await.0);
+            println!(
+                "{}",
+                Pack::from_repo(".".to_string(), name.to_owned()).await.0
+            );
             Ok("Finished.")
         }
         Commands::Render { branch, verbose } => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
             garden.render(branch.to_owned(), verbose.to_owned()).await;
             Ok("Finished.")
         }
         Commands::Bin { verbose } => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
             garden.serialize(verbose.to_owned()).await;
             Ok("Finished.")
         }
         Commands::Extract { path, verbose } => {
-            let garden = Garden::new().await;
+            let garden = Garden::new(".".to_string()).await;
             garden
                 .deserialize(path.to_owned(), verbose.to_owned())
                 .await;

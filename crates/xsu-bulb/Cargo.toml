@@ -25,6 +25,8 @@ axum-extra = { version = "0.9.3", features = ["cookie"] }
 regex = "1.10.5"
 xsu-dataman = { path = "../xsu-dataman", default-features = false }
 xsu-authman = { path = "../xsu-authman", default-features = false }
+xsu-util = { path = "../xsu-util" }
+xsu-lily = { path = "../xsu-lily" }
 
 [[bin]]
 path = "src/main.rs"
