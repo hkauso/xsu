@@ -387,19 +387,21 @@ impl Database {
         }
 
         // check author permissions
-        let author = match self.auth.get_profile_by_username(author.clone()).await {
-            Ok(ua) => ua,
-            Err(_) => return Err(DatabaseError::NotFound),
-        };
+        if author != "anonymous" {
+            let author = match self.auth.get_profile_by_username(author.clone()).await {
+                Ok(ua) => ua,
+                Err(_) => return Err(DatabaseError::NotFound),
+            };
 
-        if author.group == -1 {
-            // group -1 (even if it exists) is for marking users as banned
-            return Err(DatabaseError::NotAllowed);
+            if author.group == -1 {
+                // group -1 (even if it exists) is for marking users as banned
+                return Err(DatabaseError::NotAllowed);
+            }
         }
 
         // ...
         let question = Question {
-            author: author.username,
+            author,
             recipient: props.recipient,
             content: props.content,
             id: utility::random_id(),

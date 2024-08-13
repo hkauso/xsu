@@ -280,12 +280,12 @@ impl Database {
         // check username
         let banned_usernames = &["admin", "account", "anonymous", "login", "sign_up"];
 
-        let regex = regex::RegexBuilder::new("^[\\w\\_\\-\\.\\!]+$")
+        let regex = regex::RegexBuilder::new(r"[^\w_\-\.!]+$")
             .multi_line(true)
             .build()
             .unwrap();
 
-        if regex.captures(&username).iter().len() <= 1 {
+        if regex.captures(&username).is_some() {
             return Err(AuthError::ValueError);
         }
 

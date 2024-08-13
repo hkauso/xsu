@@ -19,7 +19,14 @@
                     >
                         {{ response.question.author }}
                     </a>
-                    {% else %} {{ response.question.author }} {% endif %}
+                    {% else %}
+                    <!-- prettier-ignore -->
+                    {% if let Some(username) = anonymous_username %}
+                        {{ username }}
+                    {% else %}
+                        anonymous
+                    {% endif %}
+                    {% endif %}
                 </b>
 
                 <span class="date item">{{ response.question.timestamp }}</span>

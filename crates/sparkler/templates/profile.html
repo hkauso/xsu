@@ -21,6 +21,9 @@
 {% endblock %} {% block panel %}
 <!-- feed -->
 <div id="feed" class="flex flex-col gap-2">
+    <!-- prettier-ignore -->
+    {% let anonymous_username = other.metadata.kv.get("sparkler:anonymous_username") %}
+
     <!-- pinned -->
     <!-- prettier-ignore -->
     {% if let Some(pinned) = pinned %}

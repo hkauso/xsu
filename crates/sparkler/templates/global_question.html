@@ -107,6 +107,7 @@ block head %}
                 {% let is_pinned = false %}
                 {% let show_pin_button = false %}
                 {% let do_not_render_question = true %}
+                {% let anonymous_username = Some("anonymous") %}
                 {% include "components/response.html" %} 
             {% endfor %}
         </div>
