@@ -40,7 +40,8 @@ body {
         "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     color: var(--color-text);
     background: var(--color-surface);
-    overflow-x: hidden;
+    overflow: hidden auto;
+    height: 100dvh;
 }
 
 #page {
