@@ -229,11 +229,13 @@ a.button.primary:hover {
     background: var(--color-primary-lowered);
 }
 
-button.secondary {
+button.secondary,
+a.button.secondary {
     background: var(--color-super-raised);
 }
 
-button.secondary:hover {
+button.secondary:hover,
+a.button.secondary:hover {
     background: var(--color-raised);
 }
 

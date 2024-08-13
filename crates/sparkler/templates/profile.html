@@ -1,7 +1,7 @@
 {% extends "profile_base.html" %} {% block pillmenu %}
 <a href="/@{{ other.username }}" class="active">
     Answers
-    <b class="notification">{{ responses.len() }}</b>
+    <b class="notification">{{ response_count }}</b>
 </a>
 
 <a href="/@{{ other.username }}/questions">
@@ -40,5 +40,18 @@
         {% let do_not_render_question = false %}
         {% include "components/response.html" %} 
     {% endfor %}
+
+    <!-- pagination buttons -->
+    {% if response_count != 0 %}
+    <div class="flex justify-between gap-2 w-full">
+        {% if page > 0 %}
+        <a class="button secondary" href="?page={{ page - 1 }}">Previous</a>
+        {% else %}
+        <div></div>
+        {% endif %} {% if responses.len() != 0 %}
+        <a class="button secondary" href="?page={{ page + 1 }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 {% call super() %} {% endblock %}

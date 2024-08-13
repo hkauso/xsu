@@ -1,10 +1,11 @@
 use askama_axum::Template;
-use axum::extract::Path;
+use axum::extract::{Path, Query};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{extract::State, response::Html, Router};
 use axum_extra::extract::CookieJar;
 
+use serde::{Deserialize, Serialize};
 use xsu_authman::model::{Profile, UserFollow};
 
 use crate::config::Config;
@@ -154,6 +155,12 @@ pub async fn sign_up_request(
     )
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ProfileQuery {
+    #[serde(default)]
+    page: i32,
+}
+
 #[derive(Template)]
 #[template(path = "profile.html")]
 struct ProfileTemplate {
@@ -162,12 +169,14 @@ struct ProfileTemplate {
     unread: usize,
     other: Profile,
     responses: Vec<QuestionResponse>,
+    response_count: usize,
     questions_count: usize,
     followers_count: usize,
     following_count: usize,
     is_following: bool,
     metadata: String,
     pinned: Option<QuestionResponse>,
+    page: i32,
     // ...
     lock_profile: bool,
     disallow_anonymous: bool,
@@ -179,6 +188,7 @@ pub async fn profile_request(
     jar: CookieJar,
     Path(username): Path<String>,
     State(database): State<Database>,
+    Query(query): Query<ProfileQuery>,
 ) -> impl IntoResponse {
     let auth_user = match jar.get("__Secure-Token") {
         Some(c) => match database
@@ -227,7 +237,7 @@ pub async fn profile_request(
     };
 
     let responses = match database
-        .get_responses_by_author(other.username.to_owned())
+        .get_responses_by_author_paginated(other.username.to_owned(), query.page)
         .await
     {
         Ok(responses) => responses,
@@ -254,6 +264,9 @@ pub async fn profile_request(
             unread,
             other: other.clone(),
             responses,
+            response_count: database
+                .get_response_count_by_author(username.clone())
+                .await,
             questions_count: database
                 .get_global_questions_count_by_author(username.clone())
                 .await,
@@ -262,6 +275,7 @@ pub async fn profile_request(
             is_following,
             metadata: serde_json::to_string(&other.metadata).unwrap(),
             pinned,
+            page: query.page,
             // ...
             lock_profile: other
                 .metadata

@@ -615,6 +615,55 @@ impl Database {
         Ok(res)
     }
 
+    /// Get all responses by their author
+    ///
+    /// ## Arguments:
+    /// * `author`
+    pub async fn get_responses_by_author_paginated(
+        &self,
+        author: String,
+        page: i32,
+    ) -> Result<Vec<QuestionResponse>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = ? ORDER BY \"timestamp\" DESC LIMIT 25 OFFSET {}", page * 25)
+        } else {
+            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = $1 ORDER BY \"timestamp\" DESC LIMIT 25 OFFSET {}", page * 25)
+        };
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&author.to_lowercase())
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<QuestionResponse> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    out.push(QuestionResponse {
+                        author: res.get("author").unwrap().to_string(),
+                        question: match serde_json::from_str(res.get("question").unwrap()) {
+                            Ok(q) => q,
+                            Err(_) => return Err(DatabaseError::ValueError),
+                        },
+                        content: res.get("content").unwrap().to_string(),
+                        id: res.get("id").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                    });
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
     /// Get the number of responses by their author
     ///
     /// ## Arguments:
