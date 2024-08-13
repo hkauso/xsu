@@ -438,6 +438,18 @@ pub async fn update_metdata_request(
         }
     }
 
+    // check user permissions
+    // returning NotAllowed here will block them from editing their profile
+    // we don't want to waste resources on rule breakers
+    if auth_user.group == -1 {
+        // group -1 (even if it exists) is for marking users as banned
+        return Json(DefaultReturn {
+            success: false,
+            message: AuthError::NotAllowed.to_string(),
+            payload: (),
+        });
+    }
+
     // return
     match database
         .edit_profile_metadata_by_name(username, props.metadata)

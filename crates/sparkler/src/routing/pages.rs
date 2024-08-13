@@ -76,7 +76,7 @@ pub async fn homepage_request(
             .await
         {
             Ok(responses) => responses,
-            Err(_) => return Html(DatabaseError::Other.to_html(database)),
+            Err(e) => return Html(e.to_html(database)),
         };
 
         return Html(

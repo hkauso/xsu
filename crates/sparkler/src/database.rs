@@ -233,6 +233,19 @@ impl Database {
             Err(_) => return Err(DatabaseError::NotFound),
         };
 
+        // check user permissions
+        // returning NotAllowed here will block them from viewing their global questions timeline
+        // we don't want to waste resources on rule breakers
+        let user = match self.auth.get_profile_by_username(user.clone()).await {
+            Ok(ua) => ua,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        if user.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
+        }
+
         // build string
         let mut query_string = String::new();
 
@@ -251,7 +264,7 @@ impl Database {
 
         let c = &self.base.db.client;
         let res = match sqlquery(&query)
-            .bind::<&String>(&user.to_lowercase())
+            .bind::<&String>(&user.username.to_lowercase())
             .fetch_all(c)
             .await
         {
@@ -373,9 +386,20 @@ impl Database {
             }
         }
 
+        // check author permissions
+        let author = match self.auth.get_profile_by_username(author.clone()).await {
+            Ok(ua) => ua,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        if author.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
+        }
+
         // ...
         let question = Question {
-            author,
+            author: author.username,
             recipient: props.recipient,
             content: props.content,
             id: utility::random_id(),
@@ -708,6 +732,19 @@ impl Database {
             Err(_) => return Err(DatabaseError::NotFound),
         };
 
+        // check user permissions
+        // returning NotAllowed here will block them from viewing their timeline
+        // we don't want to waste resources on rule breakers
+        let user = match self.auth.get_profile_by_username(user.clone()).await {
+            Ok(ua) => ua,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        if user.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
+        }
+
         // build string
         let mut query_string = String::new();
 
@@ -726,7 +763,7 @@ impl Database {
 
         let c = &self.base.db.client;
         let res = match sqlquery(&query)
-            .bind::<&String>(&user.to_lowercase())
+            .bind::<&String>(&user.username.to_lowercase())
             .fetch_all(c)
             .await
         {
@@ -831,9 +868,20 @@ impl Database {
             return Err(DatabaseError::ValueError);
         }
 
+        // check author permissions
+        let author = match self.auth.get_profile_by_username(author.clone()).await {
+            Ok(ua) => ua,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        if author.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
+        }
+
         // ...
         let response = QuestionResponse {
-            author,
+            author: author.username,
             question: question.clone(),
             content: props.content,
             id: utility::random_id(),
@@ -950,6 +998,12 @@ impl Database {
             if !group.permissions.contains(&Permission::Manager) {
                 return Err(DatabaseError::NotAllowed);
             }
+        }
+
+        // check user permissions
+        if user.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
         }
 
         // delete question
