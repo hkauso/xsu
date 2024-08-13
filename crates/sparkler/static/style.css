@@ -66,12 +66,16 @@ article {
     }
 
     article {
-        padding-left: 18dvw;
-        padding-right: 18dvw;
+        padding-left: 22dvw;
+        padding-right: 22dvw;
+    }
+
+    nav {
+        padding: 0.25rem 22dvw !important;
     }
 }
 
-@media (min-width: 600px) {
+@media screen and (max-width: 1200px) {
     article {
         padding-left: 12dvw;
         padding-right: 12dvw;
@@ -79,6 +83,17 @@ article {
 
     nav {
         padding: 0.25rem 12dvw !important;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    article {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    nav {
+        padding: 0.25rem 0.5rem !important;
     }
 }
 
@@ -442,7 +457,6 @@ nav {
     justify-content: space-between;
     align-items: center;
     color: var(--color-text);
-    padding: 0.25rem 18dvw;
     position: sticky;
     top: 0;
     z-index: 6374;
