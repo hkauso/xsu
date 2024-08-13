@@ -17,6 +17,7 @@
     --color-text: hsl(0, 0%, 0%);
     --color-text-raised: var(--color-text);
     --color-text-lowered: var(--color-text);
+    --color-link: #2949b2;
     --color-text-primary-foreground: hsl(0, 0%, 100%);
     --radius: 0.5rem;
 }
@@ -29,6 +30,7 @@
     --color-super-lowered: hsl(0, 0%, 17%);
     --color-super-raised: hsl(0, 0%, 20%);
     --color-text: hsl(0, 0%, 95%);
+    --color-link: #93c5fd;
 }
 
 html,
@@ -444,11 +446,7 @@ h6 {
 
 a {
     text-decoration: none;
-    color: #2949b2;
-}
-
-a:is(.dark *) {
-    color: #93c5fd;
+    color: var(--color-link);
 }
 
 a:hover {

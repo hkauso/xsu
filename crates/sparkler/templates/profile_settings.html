@@ -160,6 +160,18 @@
     </div>
 
     <div class="flex flex-col gap-1">
+        <label for="sparkler:color_link">Link color</label>
+
+        <input
+            name="sparkler:color_link"
+            id="sparkler:color_link"
+            onchange="update_kv('sparkler:color_link', event.target.value)"
+        />
+
+        <p class="fade">Text color used on links.</p>
+    </div>
+
+    <div class="flex flex-col gap-1">
         <label for="sparkler:color_primary">Primary</label>
 
         <input

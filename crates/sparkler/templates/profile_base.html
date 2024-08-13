@@ -176,6 +176,11 @@
         <style>:root, * { --color-text-lowered: {{ color }} !important }</style>
     {% endif %}
 {% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_link") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-link: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
 {% if let Some(color) = other.metadata.kv.get("sparkler:color_primary") %}
     {% if !color.is_empty() %}
         <style>:root, * { --color-primary: {{ color }} !important }</style>
