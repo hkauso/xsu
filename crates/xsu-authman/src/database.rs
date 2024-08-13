@@ -582,11 +582,32 @@ impl Database {
                     return Err(AuthError::Other);
                 };
 
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.sparkler.response_count:{}", name))
+                    .await;
+
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.sparkler.global_question_count:{}", name))
+                    .await;
+
                 // ...
                 self.base
                     .cachedb
                     .remove(format!("xsulib.authman.profile:{}", name))
                     .await;
+
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.authman.followers_count:{}", name))
+                    .await;
+
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.authman.following_count:{}", name))
+                    .await;
+
                 Ok(())
             }
             Err(_) => Err(AuthError::Other),

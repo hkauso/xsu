@@ -239,6 +239,7 @@ struct ProfileTemplate {
     disallow_anonymous: bool,
     require_account: bool,
     is_blocked: bool,
+    is_powerful: bool, // if you are a site manager
 }
 
 /// GET /@:username
@@ -330,6 +331,17 @@ pub async fn profile_request(
         "anonymous".to_string()
     };
 
+    let is_powerful = if let Some(ref ua) = auth_user {
+        let group = match database.auth.get_group_by_id(ua.group).await {
+            Ok(g) => g,
+            Err(_) => return Html(DatabaseError::Other.to_html(database)),
+        };
+
+        group.permissions.contains(&Permission::Manager)
+    } else {
+        false
+    };
+
     Html(
         ProfileTemplate {
             config: database.server_options.clone(),
@@ -374,6 +386,7 @@ pub async fn profile_request(
             } else {
                 false
             },
+            is_powerful,
         }
         .render()
         .unwrap(),
@@ -399,6 +412,7 @@ struct FollowersTemplate {
     disallow_anonymous: bool,
     require_account: bool,
     is_blocked: bool,
+    is_powerful: bool,
 }
 
 /// GET /@:username/followers
@@ -468,6 +482,17 @@ pub async fn followers_request(
         "anonymous".to_string()
     };
 
+    let is_powerful = if let Some(ref ua) = auth_user {
+        let group = match database.auth.get_group_by_id(ua.group).await {
+            Ok(g) => g,
+            Err(_) => return Html(DatabaseError::Other.to_html(database)),
+        };
+
+        group.permissions.contains(&Permission::Manager)
+    } else {
+        false
+    };
+
     Html(
         FollowersTemplate {
             config: database.server_options.clone(),
@@ -513,6 +538,7 @@ pub async fn followers_request(
             } else {
                 false
             },
+            is_powerful,
         }
         .render()
         .unwrap(),
@@ -538,6 +564,7 @@ struct FollowingTemplate {
     disallow_anonymous: bool,
     require_account: bool,
     is_blocked: bool,
+    is_powerful: bool,
 }
 
 /// GET /@:username/following
@@ -607,6 +634,17 @@ pub async fn following_request(
         "anonymous".to_string()
     };
 
+    let is_powerful = if let Some(ref ua) = auth_user {
+        let group = match database.auth.get_group_by_id(ua.group).await {
+            Ok(g) => g,
+            Err(_) => return Html(DatabaseError::Other.to_html(database)),
+        };
+
+        group.permissions.contains(&Permission::Manager)
+    } else {
+        false
+    };
+
     Html(
         FollowingTemplate {
             config: database.server_options.clone(),
@@ -652,6 +690,7 @@ pub async fn following_request(
             } else {
                 false
             },
+            is_powerful,
         }
         .render()
         .unwrap(),
@@ -677,6 +716,7 @@ struct ProfileQuestionsTemplate {
     disallow_anonymous: bool,
     require_account: bool,
     is_blocked: bool,
+    is_powerful: bool,
 }
 
 /// GET /@:username/questions
@@ -754,6 +794,17 @@ pub async fn profile_questions_request(
         "anonymous".to_string()
     };
 
+    let is_powerful = if let Some(ref ua) = auth_user {
+        let group = match database.auth.get_group_by_id(ua.group).await {
+            Ok(g) => g,
+            Err(_) => return Html(DatabaseError::Other.to_html(database)),
+        };
+
+        group.permissions.contains(&Permission::Manager)
+    } else {
+        false
+    };
+
     Html(
         ProfileQuestionsTemplate {
             config: database.server_options.clone(),
@@ -793,6 +844,7 @@ pub async fn profile_questions_request(
             } else {
                 false
             },
+            is_powerful,
         }
         .render()
         .unwrap(),
