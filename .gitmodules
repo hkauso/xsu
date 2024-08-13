@@ -1,9 +1,0 @@
-[submodule "crates/xsu-authman"]
-	path = crates/xsu-authman
-	url = https://github.com/swmff/xsu-authman
-[submodule "crates/xsu-util"]
-	path = crates/xsu-util
-	url = https://github.com/swmff/xsu-util
-[submodule "crates/sparkler"]
-	path = crates/sparkler
-	url = https://github.com/swmff/sparkler
