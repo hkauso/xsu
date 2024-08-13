@@ -448,6 +448,176 @@ impl Database {
         }
     }
 
+    /// Update a [`Profile`]'s `password` by its name and password
+    pub async fn edit_profile_password_by_name(
+        &self,
+        name: String,
+        password: String,
+        new_password: String,
+    ) -> Result<()> {
+        // make sure user exists
+        if let Err(e) = self
+            .get_profile_by_username_password(name.clone(), password.clone())
+            .await
+        {
+            return Err(e);
+        };
+
+        // update user
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+            "UPDATE \"xprofiles\" SET \"password\" = ? WHERE \"username\" = ?"
+        } else {
+            "UPDATE \"xprofiles\" SET (\"password\") = ($1) WHERE \"username\" = $2"
+        };
+
+        let c = &self.base.db.client;
+        match sqlquery(query)
+            .bind::<&String>(&xsu_util::hash::hash(new_password))
+            .bind::<&String>(&name)
+            .execute(c)
+            .await
+        {
+            Ok(_) => {
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.authman.profile:{}", name))
+                    .await;
+                Ok(())
+            }
+            Err(_) => Err(AuthError::Other),
+        }
+    }
+
+    /// Delete a profile
+    ///
+    /// **VALIDATION SHOULD BE DONE *BEFORE* THIS!!**
+    async fn delete_profile(&self, name: String) -> Result<()> {
+        // delete user
+        let query: &str = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+            "DELETE FROM \"xprofiles\" WHERE \"username\" = ?"
+        } else {
+            "DELETE FROM \"xprofiles\" WHERE \"username\" = $1"
+        };
+
+        let c = &self.base.db.client;
+        match sqlquery(query).bind::<&String>(&name).execute(c).await {
+            Ok(_) => {
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "DELETE FROM \"xnotifications\" WHERE \"recipient\" = ?"
+                    } else {
+                        "DELETE FROM \"xnotifications\" WHERE \"recipient\" = $1"
+                    };
+
+                if let Err(_) = sqlquery(query).bind::<&String>(&name).execute(c).await {
+                    return Err(AuthError::Other);
+                };
+
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "DELETE FROM \"xfollows\" WHERE \"user\" = ? OR \"following\" = ?"
+                    } else {
+                        "DELETE FROM \"xfollows\" WHERE \"user\" = $1 OR \"following\" = $2"
+                    };
+
+                if let Err(_) = sqlquery(query)
+                    .bind::<&String>(&name)
+                    .bind::<&String>(&name)
+                    .execute(c)
+                    .await
+                {
+                    return Err(AuthError::Other);
+                };
+
+                // sparkler stuff
+                // questions to user
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "DELETE FROM \"xquestions\" WHERE \"recipient\" = ?"
+                    } else {
+                        "DELETE FROM \"xquestions\" WHERE \"recipient\" = $1"
+                    };
+
+                if let Err(_) = sqlquery(query).bind::<&String>(&name).execute(c).await {
+                    return Err(AuthError::Other);
+                };
+
+                // questions by user
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "DELETE FROM \"xquestions\" WHERE \"author\" = ?"
+                    } else {
+                        "DELETE FROM \"xquestions\" WHERE \"author\" = $1"
+                    };
+
+                if let Err(_) = sqlquery(query).bind::<&String>(&name).execute(c).await {
+                    return Err(AuthError::Other);
+                };
+
+                // responses by user
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "DELETE FROM \"xresponses\" WHERE \"author\" = ?"
+                    } else {
+                        "DELETE FROM \"xresponses\" WHERE \"author\" = $1"
+                    };
+
+                if let Err(_) = sqlquery(query).bind::<&String>(&name).execute(c).await {
+                    return Err(AuthError::Other);
+                };
+
+                // responses to questions by user
+                let query: &str =
+                    if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                        "DELETE FROM \"xresponses\" WHERE \"question\" LIKE ?"
+                    } else {
+                        "DELETE FROM \"xresponses\" WHERE \"question\" LIKE $1"
+                    };
+
+                if let Err(_) = sqlquery(query)
+                    .bind::<&String>(&format!("%\"author\":\"{name}\"%"))
+                    .execute(c)
+                    .await
+                {
+                    return Err(AuthError::Other);
+                };
+
+                // ...
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.authman.profile:{}", name))
+                    .await;
+                Ok(())
+            }
+            Err(_) => Err(AuthError::Other),
+        }
+    }
+
+    /// Delete an existing [`Profile`] by its `username`
+    pub async fn delete_profile_by_username(&self, name: String) -> Result<()> {
+        if let Err(e) = self.get_profile_by_username(name.clone()).await {
+            return Err(e);
+        };
+
+        self.delete_profile(name).await
+    }
+
+    /// Delete an existing [`Profile`] by its `username` and `password`
+    pub async fn delete_profile_by_username_password(
+        &self,
+        name: String,
+        password: String,
+    ) -> Result<()> {
+        if let Err(e) = self
+            .get_profile_by_username_password(name.clone(), password.clone())
+            .await
+        {
+            return Err(e);
+        };
+
+        self.delete_profile(name).await
+    }
+
     // groups
 
     // GET

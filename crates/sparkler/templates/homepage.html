@@ -36,4 +36,9 @@ block head %}
         </p>
     </div>
 </main>
+
+<script>
+    // logout of account (if it exists), we can only possibly see this page with an account if it was deleted
+    fetch("/api/auth/logout");
+</script>
 {% call super() %} {% endblock %}

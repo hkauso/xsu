@@ -15,3 +15,5 @@ You can provide a Markdown file for `/site/about` by creating `static/site/about
 ## Authentication
 
 Sparkler requires a [`xsu-authman`](https://github.com/hkauso/xsu) connection to provide authentication.
+
+Users with the group permission "Manager" will be able to manage responses and view reports.

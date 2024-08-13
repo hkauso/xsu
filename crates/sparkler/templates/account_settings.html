@@ -102,7 +102,42 @@
             custom profile themes.
         </p>
     </div>
+
+    <hr />
+    <form class="flex flex-col gap-1" id="change_password">
+        <h3>Change password</h3>
+
+        <label for="current_password">Current password</label>
+        <input type="password" name="current_password" id="current_password" />
+
+        <label for="new_password">New password</label>
+        <input
+            type="password"
+            name="new_password"
+            id="new_password"
+            minlength="6"
+        />
+
+        <button>Submit</button>
+    </form>
+
+    <hr />
+    <form class="flex flex-col gap-1" id="delete_account">
+        <h3>Delete account</h3>
+        <p>
+            Note you
+            <b>cannot</b>
+            undo this! Please be sure this is what you want before you continue.
+        </p>
+
+        <label for="current_password">Current password</label>
+        <input type="password" name="current_password" id="current_password" />
+
+        <button>Submit</button>
+    </form>
 </div>
+
+{% let profile = profile.as_ref().unwrap() %}
 
 <script>
     globalThis.update_theme = (theme) => {
@@ -127,5 +162,63 @@
     if (document.getElementById(pref)) {
         document.getElementById(pref).setAttribute("selected", "true");
     }
+
+    // change password
+    document
+        .getElementById("change_password")
+        .addEventListener("submit", (e) => {
+            e.preventDefault();
+            fetch("/api/auth/profile/{{ profile.username }}/password", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    password: e.target.current_password.value,
+                    new_password: e.target.new_password.value,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    trigger("app:shout", [
+                        res.success ? "tip" : "caution",
+                        res.message || "Password changed!",
+                    ]);
+
+                    window.location.href = "#top";
+                    e.target.reset();
+                });
+        });
+
+    // delete account
+    document
+        .getElementById("delete_account")
+        .addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            if (!confirm("Are you 100% sure you want to do this?")) {
+                return;
+            }
+
+            fetch("/api/auth/me/delete", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    password: e.target.current_password.value,
+                }),
+            })
+                .then((res) => res.json())
+                .then((res) => {
+                    trigger("app:shout", [
+                        res.success ? "tip" : "caution",
+                        res.message || "Profile deleted, goodbye!",
+                    ]);
+
+                    window.location.href = "#top";
+                    e.target.reset();
+                });
+        });
 </script>
 {% call super() %} {% endblock %}

@@ -7,7 +7,7 @@ use axum::{extract::State, response::Html, Router};
 use axum_extra::extract::CookieJar;
 
 use serde::{Deserialize, Serialize};
-use xsu_authman::model::{Notification, Profile, UserFollow};
+use xsu_authman::model::{Notification, Permission, Profile, UserFollow};
 
 use crate::config::Config;
 use crate::database::Database;
@@ -1322,6 +1322,73 @@ pub async fn notifications_request(
     )
 }
 
+#[derive(Template)]
+#[template(path = "reports.html")]
+struct ReportsTemplate {
+    config: Config,
+    profile: Option<Profile>,
+    unread: usize,
+    reports: Vec<Notification>,
+}
+
+/// GET /inbox/reports
+pub async fn reports_request(
+    jar: CookieJar,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
+        },
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
+    };
+
+    // check permission
+    let group = match database.auth.get_group_by_id(auth_user.group).await {
+        Ok(g) => g,
+        Err(_) => return Html(DatabaseError::NotFound.to_html(database)),
+    };
+
+    if !group.permissions.contains(&Permission::Manager) {
+        // we must be a manager to do this
+        return Html(DatabaseError::NotAllowed.to_html(database));
+    }
+
+    // ...
+    let unread = match database
+        .get_questions_by_recipient(auth_user.username.to_owned())
+        .await
+    {
+        Ok(unread) => unread.len(),
+        Err(_) => 0,
+    };
+
+    let reports = match database
+        .auth
+        .get_notifications_by_recipient("*".to_string())
+        .await
+    {
+        Ok(r) => r,
+        Err(_) => return Html(DatabaseError::Other.to_html(database)),
+    };
+
+    Html(
+        ReportsTemplate {
+            config: database.server_options.clone(),
+            profile: Some(auth_user),
+            unread,
+            reports,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
 // ...
 pub async fn routes(database: Database) -> Router {
     Router::new()
@@ -1332,6 +1399,7 @@ pub async fn routes(database: Database) -> Router {
         .route("/inbox/global", get(global_timeline_request))
         .route("/inbox/compose", get(compose_request))
         .route("/inbox/notifications", get(notifications_request))
+        .route("/inbox/reports", get(reports_request)) // staff
         // profiles
         .route("/question/:id", get(global_question_request))
         .route("/response/:id", get(response_request))

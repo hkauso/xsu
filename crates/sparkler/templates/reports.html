@@ -1,4 +1,4 @@
-{% extends "base.html" %} {% block title %}Notifications - {{ config.name }}{%
+{% extends "base.html" %} {% block title %}Reports - {{ config.name }}{%
 endblock %} {% block head %}
 <meta name="description" content="{{ config.description }}" />
 {% endblock %} {% block nav_left %}
@@ -52,7 +52,7 @@ endblock %} {% block head %}
 </a>
 {% endblock %} {% block content %}
 <article>
-    {% if notifs.len() == 0 %}
+    {% if reports.len() == 0 %}
     <main>
         <p>
             You've seen everything!
@@ -64,7 +64,7 @@ endblock %} {% block head %}
     <main class="flex flex-col gap-2">
         <!-- notifications -->
         <!-- prettier-ignore -->
-        {% for notif in notifs %}
+        {% for notif in reports %}
             {% include "components/notification.html" %}
         {% endfor %}
     </main>
