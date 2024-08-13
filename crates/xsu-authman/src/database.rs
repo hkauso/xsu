@@ -785,6 +785,52 @@ impl Database {
         Ok(res)
     }
 
+    /// Get all existing [`UserFollow`]s where `following` is the value of `user`, 50 at a time
+    ///
+    /// # Arguments:
+    /// * `user`
+    /// * `page`
+    pub async fn get_followers_paginated(
+        &self,
+        user: String,
+        page: i32,
+    ) -> Result<Vec<UserFollow>> {
+        // fetch from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            format!(
+                "SELECT * FROM \"xfollows\" WHERE \"following\" = ? LIMIT 50 OFFSET {}",
+                page * 50
+            )
+        } else {
+            format!(
+                "SELECT * FROM \"xfollows\" WHERE \"following\" = $1 LIMIT 50 OFFSET {}",
+                page * 50
+            )
+        };
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).bind::<&String>(&user).fetch_all(c).await {
+            Ok(u) => {
+                let mut out = Vec::new();
+
+                for row in u {
+                    let row = self.base.textify_row(row, Vec::new()).0;
+                    out.push(UserFollow {
+                        user: row.get("user").unwrap().to_string(),
+                        following: row.get("following").unwrap().to_string(),
+                    })
+                }
+
+                out
+            }
+            Err(_) => return Err(AuthError::Other),
+        };
+
+        // return
+        Ok(res)
+    }
+
     /// Get the number of followers `user` has
     ///
     /// # Arguments:
@@ -832,6 +878,52 @@ impl Database {
 
         let c = &self.base.db.client;
         let res = match sqlquery(query).bind::<&String>(&user).fetch_all(c).await {
+            Ok(u) => {
+                let mut out = Vec::new();
+
+                for row in u {
+                    let row = self.base.textify_row(row, Vec::new()).0;
+                    out.push(UserFollow {
+                        user: row.get("user").unwrap().to_string(),
+                        following: row.get("following").unwrap().to_string(),
+                    })
+                }
+
+                out
+            }
+            Err(_) => return Err(AuthError::Other),
+        };
+
+        // return
+        Ok(res)
+    }
+
+    /// Get all existing [`UserFollow`]s where `user` is the value of `user`, 50 at a time
+    ///
+    /// # Arguments:
+    /// * `user`
+    /// * `page`
+    pub async fn get_following_paginated(
+        &self,
+        user: String,
+        page: i32,
+    ) -> Result<Vec<UserFollow>> {
+        // fetch from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            format!(
+                "SELECT * FROM \"xfollows\" WHERE \"user\" = ? LIMIT 50 OFFSET {}",
+                page * 50
+            )
+        } else {
+            format!(
+                "SELECT * FROM \"xfollows\" WHERE \"user\" = $1 LIMIT 50 OFFSET {}",
+                page * 50
+            )
+        };
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).bind::<&String>(&user).fetch_all(c).await {
             Ok(u) => {
                 let mut out = Vec::new();
 

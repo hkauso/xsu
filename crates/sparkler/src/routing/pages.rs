@@ -404,9 +404,11 @@ struct FollowersTemplate {
     response_count: usize,
     questions_count: usize,
     followers: Vec<UserFollow>,
+    followers_count: usize,
     following_count: usize,
     is_following: bool,
     metadata: String,
+    page: i32,
     // ...
     lock_profile: bool,
     disallow_anonymous: bool,
@@ -420,6 +422,7 @@ pub async fn followers_request(
     jar: CookieJar,
     Path(username): Path<String>,
     State(database): State<Database>,
+    Query(query): Query<ProfileQuery>,
 ) -> impl IntoResponse {
     let auth_user = match jar.get("__Secure-Token") {
         Some(c) => match database
@@ -508,12 +511,14 @@ pub async fn followers_request(
                 .await,
             followers: database
                 .auth
-                .get_followers(username.clone())
+                .get_followers_paginated(username.clone(), query.page)
                 .await
                 .unwrap_or(Vec::new()),
+            followers_count: database.auth.get_followers_count(username.clone()).await,
             following_count: database.auth.get_following_count(username.clone()).await,
             is_following,
             metadata: serde_json::to_string(&other.metadata).unwrap(),
+            page: query.page,
             // ...
             lock_profile: other
                 .metadata
@@ -557,8 +562,10 @@ struct FollowingTemplate {
     questions_count: usize,
     followers_count: usize,
     following: Vec<UserFollow>,
+    following_count: usize,
     is_following: bool,
     metadata: String,
+    page: i32,
     // ...
     lock_profile: bool,
     disallow_anonymous: bool,
@@ -572,6 +579,7 @@ pub async fn following_request(
     jar: CookieJar,
     Path(username): Path<String>,
     State(database): State<Database>,
+    Query(query): Query<ProfileQuery>,
 ) -> impl IntoResponse {
     let auth_user = match jar.get("__Secure-Token") {
         Some(c) => match database
@@ -659,13 +667,15 @@ pub async fn following_request(
                 .get_global_questions_count_by_author(username.clone())
                 .await,
             followers_count: database.auth.get_followers_count(username.clone()).await,
+            following_count: database.auth.get_following_count(username.clone()).await,
             following: database
                 .auth
-                .get_following(username)
+                .get_following_paginated(username, query.page)
                 .await
                 .unwrap_or(Vec::new()),
             is_following,
             metadata: serde_json::to_string(&other.metadata).unwrap(),
+            page: query.page,
             // ...
             lock_profile: other
                 .metadata
@@ -706,11 +716,13 @@ struct ProfileQuestionsTemplate {
     notifs: usize,
     other: Profile,
     questions: Vec<(Question, i32)>,
+    questions_count: usize,
     response_count: usize,
     followers_count: usize,
     following_count: usize,
     is_following: bool,
     metadata: String,
+    page: i32,
     // ...
     lock_profile: bool,
     disallow_anonymous: bool,
@@ -724,6 +736,7 @@ pub async fn profile_questions_request(
     jar: CookieJar,
     Path(username): Path<String>,
     State(database): State<Database>,
+    Query(query): Query<ProfileQuery>,
 ) -> impl IntoResponse {
     let auth_user = match jar.get("__Secure-Token") {
         Some(c) => match database
@@ -781,7 +794,7 @@ pub async fn profile_questions_request(
     };
 
     let questions = match database
-        .get_global_questions_by_author(other.username.to_owned())
+        .get_global_questions_by_author_paginated(other.username.to_owned(), query.page)
         .await
     {
         Ok(responses) => responses,
@@ -813,6 +826,9 @@ pub async fn profile_questions_request(
             notifs,
             other: other.clone(),
             questions,
+            questions_count: database
+                .get_global_questions_count_by_author(username.clone())
+                .await,
             response_count: database
                 .get_response_count_by_author(username.clone())
                 .await,
@@ -820,6 +836,7 @@ pub async fn profile_questions_request(
             following_count: database.auth.get_following_count(username.clone()).await,
             is_following,
             metadata: serde_json::to_string(&other.metadata).unwrap(),
+            page: query.page,
             // ...
             lock_profile: other
                 .metadata

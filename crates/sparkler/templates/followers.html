@@ -11,7 +11,7 @@
 
 <a href="/@{{ other.username }}/followers" class="active">
     Followers
-    <b class="notification">{{ followers.len() }}</b>
+    <b class="notification">{{ followers_count }}</b>
 </a>
 
 <a href="/@{{ other.username }}/following">
@@ -55,5 +55,18 @@
         </div>
     </div>
     {% endfor %}
+
+    <!-- pagination buttons -->
+    {% if followers_count != 0 %}
+    <div class="flex justify-between gap-2 w-full">
+        {% if page > 0 %}
+        <a class="button secondary" href="?page={{ page - 1 }}">Previous</a>
+        {% else %}
+        <div></div>
+        {% endif %} {% if followers.len() != 0 %}
+        <a class="button secondary" href="?page={{ page + 1 }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 {% call super() %} {% endblock %}

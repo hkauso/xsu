@@ -219,6 +219,65 @@ impl Database {
         Ok(res)
     }
 
+    /// Get all global questions by their author, 50 at a time
+    ///
+    /// ## Arguments:
+    /// * `author`
+    /// * `page`
+    pub async fn get_global_questions_by_author_paginated(
+        &self,
+        author: String,
+        page: i32,
+    ) -> Result<Vec<(Question, i32)>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            format!("SELECT * FROM \"xquestions\" WHERE \"author\" = ? AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50 OFFSET {}", page * 50)
+        } else {
+            format!("SELECT * FROM \"xquestions\" WHERE \"author\" = $1 AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50 OFFSET {}", page * 50)
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&author.to_lowercase())
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<(Question, i32)> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    let id = res.get("id").unwrap().to_string();
+                    out.push((
+                        Question {
+                            author: res.get("author").unwrap().to_string(),
+                            recipient: res.get("recipient").unwrap().to_string(),
+                            content: res.get("content").unwrap().to_string(),
+                            id: res.get("id").unwrap().to_string(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                        },
+                        // get the number of responses the question has
+                        self.base
+                            .cachedb
+                            .get(format!("xsulib.sparker.question_response_count:{}", id))
+                            .await
+                            .unwrap_or(String::from("0"))
+                            .parse::<i32>()
+                            .unwrap_or(0),
+                    ));
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
     /// Get 50 global questions from people `user` is following
     ///
     /// ## Arguments:
@@ -655,7 +714,7 @@ impl Database {
         Ok(res)
     }
 
-    /// Get all responses by their author
+    /// Get all responses by their author, 50 at a time
     ///
     /// ## Arguments:
     /// * `author`
@@ -667,9 +726,9 @@ impl Database {
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
-            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = ? ORDER BY \"timestamp\" DESC LIMIT 25 OFFSET {}", page * 25)
+            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = ? ORDER BY \"timestamp\" DESC LIMIT 50 OFFSET {}", page * 50)
         } else {
-            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = $1 ORDER BY \"timestamp\" DESC LIMIT 25 OFFSET {}", page * 25)
+            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = $1 ORDER BY \"timestamp\" DESC LIMIT 50 OFFSET {}", page * 50)
         };
 
         let c = &self.base.db.client;
