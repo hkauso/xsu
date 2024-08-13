@@ -99,7 +99,7 @@
                 Edit Profile
             </a>
             {% else %}
-            <!-- follow, etc -->
+            <!-- follow, unfollow -->
             {% if !is_following %}
             <button
                 class="round-lg w-full bold primary"
@@ -116,7 +116,69 @@
             >
                 Unfollow
             </button>
-            {% endif %} {% endif %} {% endif %}
+            {% endif %}
+
+            <!-- actions -->
+            <div class="dropdown">
+                <button
+                    onclick="trigger('app:hook.dropdown', [event])"
+                    exclude="dropdown"
+                    class="round-lg w-full"
+                >
+                    Actions
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 16 16"
+                        width="16"
+                        height="16"
+                        aria-label="Chevron down symbol"
+                        class="icon"
+                    >
+                        <path
+                            d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"
+                        ></path>
+                    </svg>
+                </button>
+
+                <div class="inner shadow-md w-content left" exclude="dropdown">
+                    <b class="title">This user</b>
+                    <a
+                        href="/settings/privacy?block={{ other.username }}#sparkler:block_somebody"
+                        target="_blank"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 16 16"
+                            width="16"
+                            height="16"
+                            aria-label="Blocked symbol"
+                            class="icon"
+                        >
+                            <path
+                                d="M4.467.22a.749.749 0 0 1 .53-.22h6.006c.199 0 .389.079.53.22l4.247 4.247c.141.14.22.331.22.53v6.006a.749.749 0 0 1-.22.53l-4.247 4.247a.749.749 0 0 1-.53.22H4.997a.749.749 0 0 1-.53-.22L.22 11.533a.749.749 0 0 1-.22-.53V4.997c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.308v5.384L5.308 14.5h5.384l3.808-3.808V5.308L10.692 1.5ZM4 7.75A.75.75 0 0 1 4.75 7h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 7.75Z"
+                            ></path>
+                        </svg>
+                        Block
+                    </a>
+                    <b class="title">Your account</b>
+                    <a href="/settings/privacy#sparkler:block_list">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 16 16"
+                            width="16"
+                            height="16"
+                            aria-label="Lock symbol"
+                            class="icon"
+                        >
+                            <path
+                                d="M4 4a4 4 0 0 1 8 0v2h.25c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25v-5.5C2 6.784 2.784 6 3.75 6H4Zm8.25 3.5h-8.5a.25.25 0 0 0-.25.25v5.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25ZM10.5 6V4a2.5 2.5 0 1 0-5 0v2Z"
+                            ></path>
+                        </svg>
+                        Manage block list
+                    </a>
+                </div>
+            </div>
+            {% endif %} {% endif %}
         </div>
 
         <section id="feed" class="flex flex-col gap-2 w-full">
@@ -134,7 +196,7 @@
 
                 <div class="card">
                     <!-- prettier-ignore -->
-                    {% if !lock_profile %}
+                    {% if !lock_profile && !is_blocked %}
                     {% if (require_account && profile.is_some()) | (disallow_anonymous && profile.is_some()) | (!require_account && !disallow_anonymous) %}
                     <form id="question_form" class="flex flex-col gap-2">
                         <textarea
@@ -241,6 +303,11 @@
 {% if let Some(color) = other.metadata.kv.get("sparkler:color_primary_lowered") %}
     {% if !color.is_empty() %}
         <style>:root, * { --color-primary-lowered: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_text_primary") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-text-primary: {{ color }} !important }</style>
     {% endif %}
 {% endif %}
 </div>

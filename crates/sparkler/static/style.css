@@ -18,7 +18,7 @@
     --color-text-raised: var(--color-text);
     --color-text-lowered: var(--color-text);
     --color-link: #2949b2;
-    --color-text-primary-foreground: hsl(0, 0%, 100%);
+    --color-text-primary: hsl(0, 0%, 100%);
     --radius: 0.5rem;
 }
 
@@ -221,7 +221,7 @@ a.button:hover {
 button.primary,
 a.button.primary {
     background: var(--color-primary);
-    color: white;
+    color: var(--color-text-primary);
 }
 
 button.primary:hover,
@@ -458,7 +458,7 @@ a:hover {
 
 nav {
     background: var(--color-primary);
-    color: var(--color-text-primary-foreground) !important;
+    color: var(--color-text-primary) !important;
     width: 100%;
     display: flex;
     justify-content: space-between;
@@ -616,6 +616,39 @@ img {
     object-fit: cover;
 }
 
+dialog {
+    padding: 0;
+    position: fixed;
+    bottom: 0;
+    display: flex;
+    background: var(--color-raised);
+    border-radius: var(--radius);
+    max-width: 100%;
+    border-style: none;
+    display: none;
+    margin: auto;
+}
+
+dialog .inner {
+    padding: 1rem;
+    width: 25rem;
+}
+
+dialog .inner hr:last-of-type {
+    /* options separator */
+    margin-top: 2rem;
+}
+
+dialog[open] {
+    display: block;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+}
+
 /* components */
 .dropdown {
     position: relative;
@@ -630,6 +663,11 @@ img {
     right: 0;
     width: 10rem;
     padding: 0.5rem 0;
+}
+
+.dropdown .inner.left {
+    left: 0;
+    right: unset;
 }
 
 .dropdown .inner[open] {
@@ -698,7 +736,7 @@ img {
 
 .sidenav a.active {
     background: var(--color-primary);
-    color: white;
+    color: var(--color-text-primary);
 }
 
 .sidenav a:first-child {
@@ -737,7 +775,7 @@ img {
 
 .pillmenu a.active {
     background: var(--color-primary);
-    color: white;
+    color: var(--color-text-primary);
 }
 
 .pillmenu a:first-child {
@@ -831,6 +869,10 @@ img {
 
 .w-full {
     width: 100% !important;
+}
+
+.w-content {
+    width: max-content !important;
 }
 
 .invert {

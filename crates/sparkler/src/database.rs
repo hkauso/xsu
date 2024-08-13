@@ -342,7 +342,7 @@ impl Database {
     /// * `author` - the username of the user creating the question
     pub async fn create_question(&self, props: QuestionCreate, author: String) -> Result<()> {
         // check content length
-        if props.content.len() > 250 {
+        if (props.content.trim().len() < 2) | (props.content.len() > 250) {
             return Err(DatabaseError::ValueError);
         }
 
@@ -372,11 +372,22 @@ impl Database {
                 .unwrap_or(&"false".to_string())
                 == "true";
 
+            let block_list =
+                if let Some(block_list) = recipient.metadata.kv.get("sparkler:block_list") {
+                    block_list.to_string()
+                } else {
+                    String::new()
+                };
+
             if profile_locked {
                 return Err(DatabaseError::NotAllowed);
             }
 
             if (block_anonymous == true) && author == "anonymous" {
+                return Err(DatabaseError::NotAllowed);
+            }
+
+            if block_list.contains(&format!("<@{author}>")) {
                 return Err(DatabaseError::NotAllowed);
             }
         } else {

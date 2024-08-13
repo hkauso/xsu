@@ -193,6 +193,7 @@ struct ProfileTemplate {
     lock_profile: bool,
     disallow_anonymous: bool,
     require_account: bool,
+    is_blocked: bool,
 }
 
 /// GET /@:username
@@ -269,6 +270,12 @@ pub async fn profile_request(
         None
     };
 
+    let posting_as = if let Some(ref ua) = auth_user {
+        ua.username.clone()
+    } else {
+        "anonymous".to_string()
+    };
+
     Html(
         ProfileTemplate {
             config: database.server_options.clone(),
@@ -307,6 +314,11 @@ pub async fn profile_request(
                 .get("sparkler:require_account")
                 .unwrap_or(&"false".to_string())
                 == "true",
+            is_blocked: if let Some(block_list) = other.metadata.kv.get("sparkler:block_list") {
+                block_list.contains(&format!("<@{posting_as}>"))
+            } else {
+                false
+            },
         }
         .render()
         .unwrap(),
@@ -330,6 +342,7 @@ struct FollowersTemplate {
     lock_profile: bool,
     disallow_anonymous: bool,
     require_account: bool,
+    is_blocked: bool,
 }
 
 /// GET /@:username/followers
@@ -384,6 +397,12 @@ pub async fn followers_request(
         false
     };
 
+    let posting_as = if let Some(ref ua) = auth_user {
+        ua.username.clone()
+    } else {
+        "anonymous".to_string()
+    };
+
     Html(
         FollowersTemplate {
             config: database.server_options.clone(),
@@ -423,6 +442,11 @@ pub async fn followers_request(
                 .get("sparkler:require_account")
                 .unwrap_or(&"false".to_string())
                 == "true",
+            is_blocked: if let Some(block_list) = other.metadata.kv.get("sparkler:block_list") {
+                block_list.contains(&format!("<@{posting_as}>"))
+            } else {
+                false
+            },
         }
         .render()
         .unwrap(),
@@ -446,6 +470,7 @@ struct FollowingTemplate {
     lock_profile: bool,
     disallow_anonymous: bool,
     require_account: bool,
+    is_blocked: bool,
 }
 
 /// GET /@:username/following
@@ -500,6 +525,12 @@ pub async fn following_request(
         false
     };
 
+    let posting_as = if let Some(ref ua) = auth_user {
+        ua.username.clone()
+    } else {
+        "anonymous".to_string()
+    };
+
     Html(
         FollowingTemplate {
             config: database.server_options.clone(),
@@ -539,6 +570,11 @@ pub async fn following_request(
                 .get("sparkler:require_account")
                 .unwrap_or(&"false".to_string())
                 == "true",
+            is_blocked: if let Some(block_list) = other.metadata.kv.get("sparkler:block_list") {
+                block_list.contains(&format!("<@{posting_as}>"))
+            } else {
+                false
+            },
         }
         .render()
         .unwrap(),
@@ -562,6 +598,7 @@ struct ProfileQuestionsTemplate {
     lock_profile: bool,
     disallow_anonymous: bool,
     require_account: bool,
+    is_blocked: bool,
 }
 
 /// GET /@:username/questions
@@ -624,6 +661,12 @@ pub async fn profile_questions_request(
         Err(_) => return Html(DatabaseError::Other.to_html(database)),
     };
 
+    let posting_as = if let Some(ref ua) = auth_user {
+        ua.username.clone()
+    } else {
+        "anonymous".to_string()
+    };
+
     Html(
         ProfileQuestionsTemplate {
             config: database.server_options.clone(),
@@ -657,6 +700,11 @@ pub async fn profile_questions_request(
                 .get("sparkler:require_account")
                 .unwrap_or(&"false".to_string())
                 == "true",
+            is_blocked: if let Some(block_list) = other.metadata.kv.get("sparkler:block_list") {
+                block_list.contains(&format!("<@{posting_as}>"))
+            } else {
+                false
+            },
         }
         .render()
         .unwrap(),
