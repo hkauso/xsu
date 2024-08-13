@@ -340,7 +340,7 @@ impl Database {
     /// ## Arguments:
     /// * `props` - [`QuestionCreate`]
     /// * `author` - the username of the user creating the question
-    pub async fn create_question(&self, props: QuestionCreate, author: String) -> Result<()> {
+    pub async fn create_question(&self, mut props: QuestionCreate, author: String) -> Result<()> {
         // check content length
         if (props.content.trim().len() < 2) | (props.content.len() > 250) {
             return Err(DatabaseError::ValueError);
@@ -408,6 +408,9 @@ impl Database {
                 // group -1 (even if it exists) is for marking users as banned
                 return Err(DatabaseError::NotAllowed);
             }
+        } else {
+            // anonymous users cannot post images
+            props.content = props.content.replace("![", "[").replace("<img", "<bimg");
         }
 
         // ...

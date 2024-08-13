@@ -262,7 +262,35 @@
                 const app = ns("app");
                 app.clean_date_codes();
                 app["hook.dropdown.init"](window);
+                app.link_filter();
             })();
         </script>
+
+        <!-- dialogs -->
+        <dialog id="link_filter">
+            <div class="inner">
+                <p>Pressing continue will bring you to the following URL:</p>
+                <pre><code id="link_filter_url"></code></pre>
+                <p>Are you want to go there?</p>
+
+                <hr />
+                <div class="flex gap-2">
+                    <a
+                        class="button primary bold"
+                        id="link_filter_continue"
+                        rel="noopener noreferrer"
+                    >
+                        Continue
+                    </a>
+                    <button
+                        class="bold"
+                        type="button"
+                        onclick="document.getElementById('link_filter').close()"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </dialog>
     </body>
 </html>

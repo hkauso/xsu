@@ -123,4 +123,22 @@
         // ...
         app.shout(secret_type, search.get("ANNC"));
     }
+
+    // link filter
+    app.define("link_filter", function (_) {
+        for (const anchor of Array.from(document.querySelectorAll("a"))) {
+            if (!anchor.href.startsWith("https://")) {
+                continue;
+            }
+
+            anchor.addEventListener("click", (e) => {
+                e.preventDefault();
+                document.getElementById("link_filter_url").innerText =
+                    anchor.href;
+                document.getElementById("link_filter_continue").href =
+                    anchor.href;
+                document.getElementById("link_filter").showModal();
+            });
+        }
+    });
 })();
