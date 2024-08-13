@@ -616,10 +616,22 @@ impl Database {
 
     /// Delete an existing [`Profile`] by its `username`
     pub async fn delete_profile_by_username(&self, name: String) -> Result<()> {
-        if let Err(e) = self.get_profile_by_username(name.clone()).await {
-            return Err(e);
+        let user = match self.get_profile_by_username(name.clone()).await {
+            Ok(ua) => ua,
+            Err(e) => return Err(e),
         };
 
+        // make sure they aren't a manager
+        let group = match self.get_group_by_id(user.group).await {
+            Ok(g) => g,
+            Err(_) => return Err(AuthError::Other),
+        };
+
+        if group.permissions.contains(&Permission::Manager) {
+            return Err(AuthError::NotAllowed);
+        }
+
+        // delete
         self.delete_profile(name).await
     }
 
@@ -629,13 +641,25 @@ impl Database {
         name: String,
         password: String,
     ) -> Result<()> {
-        if let Err(e) = self
+        let user = match self
             .get_profile_by_username_password(name.clone(), password.clone())
             .await
         {
-            return Err(e);
+            Ok(ua) => ua,
+            Err(e) => return Err(e),
         };
 
+        // make sure they aren't a manager
+        let group = match self.get_group_by_id(user.group).await {
+            Ok(g) => g,
+            Err(_) => return Err(AuthError::Other),
+        };
+
+        if group.permissions.contains(&Permission::Manager) {
+            return Err(AuthError::NotAllowed);
+        }
+
+        // delete
         self.delete_profile(name).await
     }
 
