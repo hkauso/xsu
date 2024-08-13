@@ -129,9 +129,10 @@
         for (const anchor of Array.from(document.querySelectorAll("a"))) {
             const url = new URL(anchor.href);
             if (
-                !anchor.href.startsWith("https://") |
-                anchor.href.startsWith("/") |
-                (url.orgin === window.location.origin)
+                !anchor.href.startsWith("https://") ||
+                !anchor.href.startsWith("http://") ||
+                anchor.href.startsWith("/") ||
+                url.orgin === window.location.origin
             ) {
                 continue;
             }
