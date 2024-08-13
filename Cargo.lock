@@ -2107,6 +2107,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sparkler"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "askama_axum",
+ "axum",
+ "axum-extra",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "tower-http",
+ "xsu-authman",
+ "xsu-dataman",
+ "xsu-util",
+]
+
+[[package]]
 name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3245,7 +3265,7 @@ dependencies = [
 
 [[package]]
 name = "xsu-authman"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "axum",
  "axum-extra",
@@ -3290,7 +3310,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sproc",
- "sysinfo",
  "tokio",
  "toml",
  "tower-http",
@@ -3358,6 +3377,10 @@ dependencies = [
  "xsu-appman",
  "xsu-util",
 ]
+
+[[package]]
+name = "xsu-origami"
+version = "0.1.0"
 
 [[package]]
 name = "xsu-slime"

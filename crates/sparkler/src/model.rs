@@ -7,53 +7,53 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use xsu_dataman::DefaultReturn;
 
+/// A question structure
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Repository {
-    /// The name of the repository
-    pub name: String,
-    /// The username of the repository owner
-    pub owner: String,
-    /// The date the repository was published
-    pub date_published: u128,
-    /// Extra repository options
-    pub metadata: RepositoryMetadata,
+pub struct Question {
+    /// The author of the question; "anonymous" marks the question as an anonymous question
+    pub author: String,
+    /// The recipient of the question; cannot be anonymous
+    pub recipient: String,
+    /// The content of the question
+    pub content: String,
+    /// The ID of the question
+    pub id: String,
+    /// The time this question was asked
+    pub timestamp: u128,
 }
 
-/// Document metadata
+/// A response structure
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RepositoryMetadata {
-    /// The default branch of the repository
-    #[serde(default = "default_branch")]
-    pub default_branch: String,
-}
-
-impl Default for RepositoryMetadata {
-    fn default() -> Self {
-        Self {
-            default_branch: default_branch(),
-        }
-    }
-}
-
-fn default_branch() -> String {
-    "main".to_string()
+pub struct QuestionResponse {
+    /// The author of the response; cannot be anonymous
+    pub author: String,
+    /// ID of the question this response is replying to
+    pub question: Question,
+    /// The content of the response
+    pub content: String,
+    /// The ID of the response
+    pub id: String,
+    /// The time this response was created
+    pub timestamp: u128,
 }
 
 // props
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RepositoryCreate {
-    pub name: String,
+pub struct QuestionCreate {
+    pub recipient: String,
+    pub content: String,
+    pub anonymous: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RepositoryEditMetadata {
-    pub metadata: RepositoryMetadata,
+pub struct ResponseCreate {
+    pub question: String,
+    pub content: String,
 }
 
 /// General API errors
 pub enum DatabaseError {
-    AlreadyExists,
     NotAllowed,
     ValueError,
     NotFound,
@@ -64,10 +64,9 @@ impl DatabaseError {
     pub fn to_string(&self) -> String {
         use DatabaseError::*;
         match self {
-            AlreadyExists => String::from("A repository with this ID already exists."),
-            NotAllowed => String::from("You are not allowed to do this."),
-            ValueError => String::from("One of the field values given is invalid."),
-            NotFound => String::from("No repository with this ID has been found."),
+            NotAllowed => String::from("You are not allowed to do this!"),
+            ValueError => String::from("One of the field values given is invalid!"),
+            NotFound => String::from("Nothing with this ID could be found!"),
             _ => String::from("An unspecified error has occured"),
         }
     }
@@ -77,15 +76,6 @@ impl IntoResponse for DatabaseError {
     fn into_response(self) -> Response {
         use DatabaseError::*;
         match self {
-            AlreadyExists => (
-                StatusCode::BAD_REQUEST,
-                Json(DefaultReturn::<u16> {
-                    success: false,
-                    message: self.to_string(),
-                    payload: 400,
-                }),
-            )
-                .into_response(),
             NotAllowed => (
                 StatusCode::UNAUTHORIZED,
                 Json(DefaultReturn::<u16> {
@@ -113,6 +103,16 @@ impl IntoResponse for DatabaseError {
                 }),
             )
                 .into_response(),
+        }
+    }
+}
+
+impl<T: Default> Into<xsu_dataman::DefaultReturn<T>> for DatabaseError {
+    fn into(self) -> xsu_dataman::DefaultReturn<T> {
+        DefaultReturn {
+            success: false,
+            message: self.to_string(),
+            payload: T::default(),
         }
     }
 }

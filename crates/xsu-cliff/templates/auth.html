@@ -16,16 +16,26 @@ block content %}
                 <legend>Login</legend>
 
                 <form id="login_form">
-                    <div class="row">
-                        <label for="uid">Account ID</label>
+                    <div class="row flex flex-col gap-1">
+                        <label for="username">Username</label>
                         <input
                             type="text"
-                            name="uid"
-                            id="uid"
-                            placeholder="00000000-0000-0000-0000-000000000000"
+                            name="username"
+                            id="username"
                             required
-                            minlength="36"
-                            maxlength="36"
+                            minlength="4"
+                            maxlength="32"
+                        />
+                    </div>
+
+                    <div class="row flex flex-col gap-1">
+                        <label for="password">Password</label>
+                        <input
+                            type="password"
+                            name="password"
+                            id="password"
+                            required
+                            minlength="6"
                         />
                     </div>
 
@@ -38,16 +48,26 @@ block content %}
                 <legend>Register</legend>
 
                 <form id="register_form">
-                    <div class="row">
+                    <div class="row flex flex-col gap-1">
                         <label for="username">Username</label>
                         <input
                             type="text"
                             name="username"
                             id="username"
-                            placeholder="my-unique-username"
                             required
                             minlength="4"
                             maxlength="32"
+                        />
+                    </div>
+
+                    <div class="row flex flex-col gap-1">
+                        <label for="password">Password</label>
+                        <input
+                            type="password"
+                            name="password"
+                            id="password"
+                            required
+                            minlength="6"
                         />
                     </div>
 
@@ -71,7 +91,8 @@ block content %}
                 const res = await fetch("/api/auth/login", {
                     method: "POST",
                     body: JSON.stringify({
-                        id: e.target.uid.value,
+                        username: e.target.username.value,
+                        password: e.target.password.value,
                     }),
                     headers: {
                         "Content-Type": "application/json",
@@ -101,6 +122,7 @@ block content %}
                     method: "POST",
                     body: JSON.stringify({
                         username: e.target.username.value,
+                        password: e.target.password.value,
                     }),
                     headers: {
                         "Content-Type": "application/json",

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -11,10 +13,19 @@ use serde::{Deserialize, Serialize};
 /// Basic user structure
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Profile {
+    /// User ID
     pub id: String,
+    /// User name
     pub username: String,
+    /// Hashed user password
+    pub password: String,
+    /// User login tokens
+    pub tokens: Vec<String>,
+    /// Extra user information
     pub metadata: ProfileMetadata,
+    /// User group
     pub group: i32,
+    /// User join timestamp
     pub joined: u128,
 }
 
@@ -23,6 +34,8 @@ impl Default for Profile {
         Self {
             id: String::new(),
             username: String::new(),
+            password: String::new(),
+            tokens: Vec::new(),
             metadata: ProfileMetadata::default(),
             group: 0,
             joined: xsu_dataman::utility::unix_epoch_timestamp(),
@@ -32,25 +45,34 @@ impl Default for Profile {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ProfileMetadata {
-    /// A secondary token that can be used to authenticate as the account
-    #[serde(default)]
-    pub secondary_token: String,
     /// A URL which dictates where the user's profile avatar is loaded from, `xsu-cliff` proxies this link and returns the user avatar
     #[serde(default)]
     pub avatar_url: String,
     /// The user profile's [`BlockList`]
     #[serde(default)]
     pub definition: BlockList,
+    /// Extra key-value pairs
+    #[serde(default)]
+    pub kv: HashMap<String, String>,
 }
 
 impl Default for ProfileMetadata {
     fn default() -> Self {
         Self {
-            secondary_token: String::new(),
             avatar_url: String::new(),
             definition: BlockList::default(),
+            kv: HashMap::new(),
         }
     }
+}
+
+/// Basic follow structure
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UserFollow {
+    /// The username of the user following
+    pub user: String,
+    /// The username of the user they are following
+    pub following: String,
 }
 
 /// xsu system permission
@@ -84,11 +106,13 @@ impl Default for Group {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProfileCreate {
     pub username: String,
+    pub password: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProfileLogin {
-    pub id: String,
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -102,6 +126,7 @@ pub struct SetProfileGroup {
 }
 
 /// General API errors
+#[derive(Debug)]
 pub enum AuthError {
     MustBeUnique,
     NotAllowed,

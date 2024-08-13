@@ -43,7 +43,7 @@ endblock %} {% block content %}
     const metadata = reg_ns("metadata");
 
     metadata.define("editor", function ({ $ }, bind_to, metadata) {
-        const objects = ["definition"];
+        const objects = ["definition", "kv"];
         $.update_metadata_value = (name, value) => {
             if (objects.includes(name)) {
                 value = JSON.parse(value);

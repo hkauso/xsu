@@ -2,6 +2,7 @@
 use crate::database::Database;
 use crate::model::{
     AuthError, Permission, ProfileCreate, ProfileLogin, SetProfileGroup, SetProfileMetadata,
+    UserFollow,
 };
 use axum::body::Bytes;
 use axum::http::HeaderMap;
@@ -21,6 +22,7 @@ pub fn routes(database: Database) -> Router {
         .route("/profile/:username/group", post(set_group_request))
         .route("/profile/:username/metadata", post(update_metdata_request))
         .route("/profile/:username/avatar", get(profile_avatar_request))
+        .route("/profile/:username/follow", get(profile_follow_request))
         .route("/profile/:username", get(profile_inspect_request))
         // me
         .route("/me", get(me_request))
@@ -51,7 +53,10 @@ pub async fn create_profile_request(
         );
     }
 
-    let res = match database.create_profile(props.username).await {
+    let res = match database
+        .create_profile(props.username, props.password)
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             return (
@@ -91,22 +96,37 @@ pub async fn create_profile_request(
     )
 }
 
-/// [`Database::get_profile_by_unhashed_st`]
+/// [`Database::get_profile_by_username_password`]
 pub async fn login_request(
     State(database): State<Database>,
     Json(props): Json<ProfileLogin>,
 ) -> impl IntoResponse {
-    if let Err(e) = database.get_profile_by_unhashed(props.id.clone()).await {
-        return (
-            HeaderMap::new(),
-            serde_json::to_string(&DefaultReturn {
-                success: false,
-                message: e.to_string(),
-                payload: (),
-            })
-            .unwrap(),
-        );
+    let mut ua = match database
+        .get_profile_by_username_password(props.username.clone(), props.password.clone())
+        .await
+    {
+        Ok(ua) => ua,
+        Err(e) => {
+            return (
+                HeaderMap::new(),
+                serde_json::to_string(&DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                })
+                .unwrap(),
+            )
+        }
     };
+
+    let token = xsu_dataman::utility::uuid();
+    let token_hashed = xsu_dataman::utility::hash(token.clone());
+
+    ua.tokens.push(token_hashed);
+    database
+        .edit_profile_tokens_by_name(props.username.clone(), ua.tokens)
+        .await
+        .unwrap();
 
     // return
     let mut headers = HeaderMap::new();
@@ -115,7 +135,7 @@ pub async fn login_request(
         "Set-Cookie",
         format!(
             "__Secure-Token={}; SameSite=Lax; Secure; Path=/; HostOnly=true; HttpOnly=true; Max-Age={}",
-            props.id,
+            token,
             60* 60 * 24 * 365
         )
         .parse()
@@ -126,7 +146,7 @@ pub async fn login_request(
         headers,
         serde_json::to_string(&DefaultReturn {
             success: true,
-            message: props.id,
+            message: token,
             payload: (),
         })
         .unwrap(),
@@ -215,7 +235,7 @@ pub async fn profile_inspect_request(
 
     // edit profile
     auth_user.id = String::new();
-    auth_user.metadata.secondary_token = String::new();
+    auth_user.tokens = Vec::new();
 
     // return
     Json(DefaultReturn {
@@ -421,6 +441,57 @@ pub async fn update_metdata_request(
     // return
     match database
         .edit_profile_metadata_by_name(username, props.metadata)
+        .await
+    {
+        Ok(_) => Json(DefaultReturn {
+            success: true,
+            message: "Acceptable".to_string(),
+            payload: (),
+        }),
+        Err(e) => Json(DefaultReturn {
+            success: false,
+            message: e.to_string(),
+            payload: (),
+        }),
+    }
+}
+
+/// Toggle following on the given user
+pub async fn profile_follow_request(
+    jar: CookieJar,
+    Path(username): Path<String>,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                });
+            }
+        },
+        None => {
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+    };
+
+    // return
+    match database
+        .toggle_user_follow(&mut UserFollow {
+            user: auth_user.username,
+            following: username,
+        })
         .await
     {
         Ok(_) => Json(DefaultReturn {

@@ -105,8 +105,6 @@ impl Commit {
 /// Information about a [`Garden`]'s branches
 #[derive(Clone, Serialize, Deserialize)]
 pub struct GardenBranchConfig {
-    /// The default branch
-    pub default: String,
     /// The local current branch
     pub current: String,
 }
@@ -114,7 +112,6 @@ pub struct GardenBranchConfig {
 impl Default for GardenBranchConfig {
     fn default() -> Self {
         Self {
-            default: "main".to_string(),
             current: "main".to_string(),
         }
     }

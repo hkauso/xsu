@@ -16,15 +16,53 @@ pub enum ChangeMode {
 /// ```
 pub type Change = (usize, ChangeMode, String);
 
+#[derive(Debug)]
+pub enum EncodingType {
+    Utf8,
+    Binary,
+}
+
+/// File metadata
+///
+/// ```
+/// VERSION VERSION VERSION ENCODING(u = utf-8, b = binary)
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileMetadata(pub String);
+
+impl Default for FileMetadata {
+    fn default() -> Self {
+        Self("001u".to_string())
+    }
+}
+
+impl FileMetadata {
+    /// Get the format version
+    pub fn version(&self) -> i32 {
+        self.0.chars().take(3).collect::<String>().parse().unwrap()
+    }
+
+    /// Get the file encoding type
+    pub fn encoding(&self) -> EncodingType {
+        let enc = self.0.get(3..3).unwrap();
+
+        match enc {
+            "u" => EncodingType::Utf8,
+            "b" => EncodingType::Binary,
+            _ => EncodingType::Utf8,
+        }
+    }
+}
+
 /// A file inside of a [`Patch`]
 ///
 /// `(old content, changes)`
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PatchFile(pub String, pub Vec<Change>);
+pub struct PatchFile(pub String, pub Vec<Change>, pub FileMetadata);
 
 impl Default for PatchFile {
     fn default() -> Self {
-        Self(String::new(), Vec::new())
+        Self(String::new(), Vec::new(), FileMetadata::default())
     }
 }
 
@@ -103,8 +141,10 @@ impl Patch {
             files: BTreeMap::new(),
         };
 
-        out.files
-            .insert(path.clone(), PatchFile(old.clone(), Vec::new()));
+        out.files.insert(
+            path.clone(),
+            PatchFile(old.clone(), Vec::new(), FileMetadata::default()),
+        );
 
         let this = out.files.get_mut(&path).unwrap();
 
