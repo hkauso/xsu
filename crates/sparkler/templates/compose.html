@@ -1,5 +1,5 @@
-{% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
-block head %}
+{% extends "base.html" %} {% block title %}Compose - {{ config.name }}{%
+endblock %} {% block head %}
 <meta name="description" content="{{ config.description }}" />
 {% endblock %} {% block nav_left %}
 <a class="button active" href="/">
@@ -37,31 +37,31 @@ block head %}
 </a>
 {% endblock %} {% block content %}
 <article>
-    {% if questions.len() == 0 %}
-    <main>
-        <p>
-            You've seen everything!
-            <em>For now...</em>
-        </p>
-    </main>
-    {% endif %}
-
     <main class="flex flex-col gap-2">
         <div class="pillmenu">
             <a href="/">Timeline</a>
-            <a href="/inbox/global" class="active">Global Questions</a>
-            <a href="/inbox/compose">Ask</a>
+            <a href="/inbox/global">Global Questions</a>
+            <a href="/inbox/compose" class="active">Ask</a>
         </div>
 
         <!-- compose -->
         <div class="card-nest w-full shadow">
-            <!-- prettier-ignore -->
-            <div class="card">
-                    Ask a global question
-                </div>
+            <div class="card">Ask a question</div>
 
             <div class="card">
                 <form id="question_form" class="flex flex-col gap-2">
+                    <select name="recipient" id="recipient" required>
+                        <option value="" disabled selected>
+                            Select a recipient
+                        </option>
+                        <option value="@">Global question</option>
+                        {% for follow in following %}
+                        <option value="{{ follow.following }}">
+                            {{ follow.following }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
                     <textarea
                         class="w-full"
                         placeholder="Type your question!"
@@ -79,18 +79,6 @@ block head %}
                 </form>
             </div>
         </div>
-        <hr />
-
-        <!-- feed -->
-        <p>
-            Global questions from people you follow (and yourself) will show up
-            here!
-        </p>
-
-        <!-- prettier-ignore -->
-        {% for question in questions %}
-            {% include "components/global_question.html" %}
-        {% endfor %}
     </main>
 </article>
 
@@ -103,7 +91,9 @@ block head %}
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                recipient: "@",
+                recipient:
+                    e.target.recipient.options[e.target.recipient.selectedIndex]
+                        .value,
                 content: e.target.content.value,
                 anonymous: false,
             }),

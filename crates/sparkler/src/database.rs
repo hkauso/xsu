@@ -244,9 +244,9 @@ impl Database {
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
             // we're also going to include our own responses so we don't have to do any complicated stuff to detect if we should start with "OR" (previous)
-            format!("SELECT * FROM \"xquestions\" WHERE \"author\" = ?{query_string} AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50")
+            format!("SELECT * FROM \"xquestions\" WHERE (\"author\" = ?{query_string}) AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50")
         } else {
-            format!( "SELECT * FROM \"xquestions\" WHERE \"author\" = $1{query_string} AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50")
+            format!( "SELECT * FROM \"xquestions\" WHERE (\"author\" = $1{query_string}) AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50")
         };
 
         let c = &self.base.db.client;

@@ -670,7 +670,8 @@ img {
 }
 
 .question_content p,
-.response_content p {
+.response_content p,
+.motivational_header p {
     margin: 0;
 }
 

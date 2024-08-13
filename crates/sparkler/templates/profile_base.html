@@ -124,9 +124,9 @@
             <!-- new question -->
             <div class="card-nest w-full shadow">
                 <!-- prettier-ignore -->
-                <div class="card">
+                <div class="card motivational_header">
                     {% if let Some(header) = other.metadata.kv.get("sparkler:motivational_header") %}
-                        {{ header }}
+                        {{ xsu_util::ui::render_markdown(header)|safe }}
                     {% else %}
                         Ask a question
                     {% endif %}

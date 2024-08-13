@@ -62,9 +62,13 @@
         }
 
         // open
-        for (const dropdown of Array.from(target.querySelectorAll(".inner"))) {
-            dropdown.toggleAttribute("open");
-        }
+        setTimeout(() => {
+            for (const dropdown of Array.from(
+                target.querySelectorAll(".inner"),
+            )) {
+                dropdown.toggleAttribute("open");
+            }
+        }, 5);
     });
 
     app.define("hook.dropdown.init", function (_, bind_to) {

@@ -810,6 +810,56 @@ pub async fn global_timeline_request(
 }
 
 #[derive(Template)]
+#[template(path = "compose.html")]
+struct ComposeTemplate {
+    config: Config,
+    profile: Option<Profile>,
+    unread: usize,
+    following: Vec<UserFollow>,
+}
+
+/// GET /inbox/compose
+pub async fn compose_request(
+    jar: CookieJar,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+        },
+        None => return Html(DatabaseError::NotAllowed.to_string()),
+    };
+
+    let unread = match database
+        .get_questions_by_recipient(auth_user.username.to_owned())
+        .await
+    {
+        Ok(unread) => unread.len(),
+        Err(_) => 0,
+    };
+
+    Html(
+        ComposeTemplate {
+            config: database.server_options,
+            following: database
+                .auth
+                .get_following(auth_user.username.clone())
+                .await
+                .unwrap_or(Vec::new()),
+            profile: Some(auth_user),
+            unread,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+#[derive(Template)]
 #[template(path = "account_settings.html")]
 struct AccountSettingsTemplate {
     config: Config,
@@ -953,6 +1003,7 @@ pub async fn routes(database: Database) -> Router {
         .route("/", get(homepage_request))
         .route("/inbox", get(inbox_request))
         .route("/inbox/global", get(global_timeline_request))
+        .route("/inbox/compose", get(compose_request))
         .route("/question/:id", get(global_question_request))
         .route("/@:username/questions", get(profile_questions_request))
         .route("/@:username/following", get(following_request))
