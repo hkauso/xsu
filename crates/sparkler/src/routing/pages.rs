@@ -951,6 +951,7 @@ struct ResponseTemplate {
     notifs: usize,
     response: QuestionResponse,
     anonymous_username: Option<String>,
+    anonymous_avatar: Option<String>,
 }
 
 /// GET /response/:id
@@ -1005,6 +1006,7 @@ pub async fn response_request(
             notifs,
             response,
             anonymous_username: Some("anonymous".to_string()), // TODO: fetch recipient setting
+            anonymous_avatar: None,
         }
         .render()
         .unwrap(),

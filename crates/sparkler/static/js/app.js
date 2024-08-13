@@ -130,6 +130,7 @@
             const url = new URL(anchor.href);
             if (
                 anchor.href.startsWith("/") ||
+                anchor.href.startsWith("javascript:") ||
                 url.origin === window.location.origin
             ) {
                 continue;

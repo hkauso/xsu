@@ -35,6 +35,22 @@
     </div>
 
     <div class="flex flex-col gap-1">
+        <label for="sparkler:anonymous_avatar">Anonymous avatar URL</label>
+
+        <input
+            type="url"
+            name="sparkler:anonymous_avatar"
+            id="sparkler:anonymous_avatar"
+            onchange="update_kv('sparkler:anonymous_avatar', event.target.value)"
+        />
+
+        <p class="fade">
+            This avatar will be shown instead of the default avatar on anonymous
+            questions.
+        </p>
+    </div>
+
+    <div class="flex flex-col gap-1">
         <label for="sparkler:pinned">Pinned</label>
 
         <input
