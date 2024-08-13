@@ -7,7 +7,7 @@ use axum::{extract::State, response::Html, Router};
 use axum_extra::extract::CookieJar;
 
 use serde::{Deserialize, Serialize};
-use xsu_authman::model::{Profile, UserFollow};
+use xsu_authman::model::{Notification, Profile, UserFollow};
 
 use crate::config::Config;
 use crate::database::Database;
@@ -41,6 +41,7 @@ struct TimelineTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     responses: Vec<QuestionResponse>,
 }
 
@@ -71,6 +72,11 @@ pub async fn homepage_request(
             Err(_) => 0,
         };
 
+        let notifs = database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await;
+
         let responses = match database
             .get_responses_by_following(ua.username.to_owned())
             .await
@@ -84,6 +90,7 @@ pub async fn homepage_request(
                 config: database.server_options,
                 profile: auth_user,
                 unread,
+                notifs,
                 responses,
             }
             .render()
@@ -216,6 +223,7 @@ struct ProfileTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     other: Profile,
     responses: Vec<QuestionResponse>,
     response_count: usize,
@@ -264,13 +272,22 @@ pub async fn profile_request(
         0
     };
 
+    let notifs = if let Some(ref ua) = auth_user {
+        database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await
+    } else {
+        0
+    };
+
     let other = match database
         .auth
         .get_profile_by_username(username.clone())
         .await
     {
         Ok(ua) => ua,
-        Err(e) => return Html(e.to_string()),
+        Err(_) => return Html(DatabaseError::NotFound.to_html(database)),
     };
 
     let is_following = if let Some(ref ua) = auth_user {
@@ -318,6 +335,7 @@ pub async fn profile_request(
             config: database.server_options.clone(),
             profile: auth_user,
             unread,
+            notifs,
             other: other.clone(),
             responses,
             response_count: database
@@ -368,6 +386,7 @@ struct FollowersTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     other: Profile,
     response_count: usize,
     questions_count: usize,
@@ -412,6 +431,15 @@ pub async fn followers_request(
         0
     };
 
+    let notifs = if let Some(ref ua) = auth_user {
+        database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await
+    } else {
+        0
+    };
+
     let other = match database
         .auth
         .get_profile_by_username(username.clone())
@@ -445,6 +473,7 @@ pub async fn followers_request(
             config: database.server_options.clone(),
             profile: auth_user,
             unread,
+            notifs,
             other: other.clone(),
             response_count: database
                 .get_response_count_by_author(username.clone())
@@ -496,6 +525,7 @@ struct FollowingTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     other: Profile,
     response_count: usize,
     questions_count: usize,
@@ -540,6 +570,15 @@ pub async fn following_request(
         0
     };
 
+    let notifs = if let Some(ref ua) = auth_user {
+        database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await
+    } else {
+        0
+    };
+
     let other = match database
         .auth
         .get_profile_by_username(username.clone())
@@ -573,6 +612,7 @@ pub async fn following_request(
             config: database.server_options.clone(),
             profile: auth_user,
             unread,
+            notifs,
             other: other.clone(),
             response_count: database
                 .get_response_count_by_author(username.clone())
@@ -624,6 +664,7 @@ struct ProfileQuestionsTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     other: Profile,
     questions: Vec<(Question, i32)>,
     response_count: usize,
@@ -664,6 +705,15 @@ pub async fn profile_questions_request(
             Ok(unread) => unread.len(),
             Err(_) => 0,
         }
+    } else {
+        0
+    };
+
+    let notifs = if let Some(ref ua) = auth_user {
+        database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await
     } else {
         0
     };
@@ -709,6 +759,7 @@ pub async fn profile_questions_request(
             config: database.server_options.clone(),
             profile: auth_user,
             unread,
+            notifs,
             other: other.clone(),
             questions,
             response_count: database
@@ -754,6 +805,7 @@ struct GlobalQuestionTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     question: Question,
     responses: Vec<QuestionResponse>,
 }
@@ -788,6 +840,15 @@ pub async fn global_question_request(
         0
     };
 
+    let notifs = if let Some(ref ua) = auth_user {
+        database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await
+    } else {
+        0
+    };
+
     let question = match database.get_question(id.clone()).await {
         Ok(ua) => ua,
         Err(e) => return Html(e.to_html(database)),
@@ -803,8 +864,78 @@ pub async fn global_question_request(
             config: database.server_options.clone(),
             profile: auth_user,
             unread,
+            notifs,
             question,
             responses,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+#[derive(Template)]
+#[template(path = "response.html")]
+struct ResponseTemplate {
+    config: Config,
+    profile: Option<Profile>,
+    unread: usize,
+    notifs: usize,
+    response: QuestionResponse,
+    anonymous_username: Option<String>,
+}
+
+/// GET /response/:id
+pub async fn response_request(
+    jar: CookieJar,
+    Path(id): Path<String>,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => Some(ua),
+            Err(_) => None,
+        },
+        None => None,
+    };
+
+    let unread = if let Some(ref ua) = auth_user {
+        match database
+            .get_questions_by_recipient(ua.username.to_owned())
+            .await
+        {
+            Ok(unread) => unread.len(),
+            Err(_) => 0,
+        }
+    } else {
+        0
+    };
+
+    let notifs = if let Some(ref ua) = auth_user {
+        database
+            .auth
+            .get_notification_count_by_recipient(ua.username.to_owned())
+            .await
+    } else {
+        0
+    };
+
+    let response = match database.get_response(id.clone()).await {
+        Ok(ua) => ua,
+        Err(e) => return Html(e.to_html(database)),
+    };
+
+    Html(
+        ResponseTemplate {
+            config: database.server_options.clone(),
+            profile: auth_user,
+            unread,
+            notifs,
+            response,
+            anonymous_username: Some("anonymous".to_string()), // TODO: fetch recipient setting
         }
         .render()
         .unwrap(),
@@ -817,6 +948,7 @@ struct InboxTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: Vec<Question>,
+    notifs: usize,
 }
 
 /// GET /inbox
@@ -841,11 +973,17 @@ pub async fn inbox_request(jar: CookieJar, State(database): State<Database>) -> 
         Err(_) => return Html(DatabaseError::Other.to_html(database)),
     };
 
+    let notifs = database
+        .auth
+        .get_notification_count_by_recipient(auth_user.username.to_owned())
+        .await;
+
     Html(
         InboxTemplate {
             config: database.server_options,
             profile: Some(auth_user),
             unread,
+            notifs,
         }
         .render()
         .unwrap(),
@@ -858,6 +996,7 @@ struct GlobalTimelineTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     questions: Vec<(Question, i32)>,
 }
 
@@ -886,6 +1025,11 @@ pub async fn global_timeline_request(
         Err(_) => 0,
     };
 
+    let notifs = database
+        .auth
+        .get_notification_count_by_recipient(auth_user.username.to_owned())
+        .await;
+
     let questions = match database
         .get_global_questions_by_following(auth_user.username.clone())
         .await
@@ -899,6 +1043,7 @@ pub async fn global_timeline_request(
             config: database.server_options,
             profile: Some(auth_user),
             unread,
+            notifs,
             questions,
         }
         .render()
@@ -912,6 +1057,7 @@ struct ComposeTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     following: Vec<UserFollow>,
 }
 
@@ -940,6 +1086,11 @@ pub async fn compose_request(
         Err(_) => 0,
     };
 
+    let notifs = database
+        .auth
+        .get_notification_count_by_recipient(auth_user.username.to_owned())
+        .await;
+
     Html(
         ComposeTemplate {
             config: database.server_options,
@@ -950,6 +1101,7 @@ pub async fn compose_request(
                 .unwrap_or(Vec::new()),
             profile: Some(auth_user),
             unread,
+            notifs,
         }
         .render()
         .unwrap(),
@@ -962,6 +1114,7 @@ struct AccountSettingsTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     metadata: String,
 }
 
@@ -990,12 +1143,18 @@ pub async fn account_settings_request(
         Err(_) => 0,
     };
 
+    let notifs = database
+        .auth
+        .get_notification_count_by_recipient(auth_user.username.to_owned())
+        .await;
+
     Html(
         AccountSettingsTemplate {
             config: database.server_options,
             metadata: serde_json::to_string(&auth_user.metadata).unwrap(),
             profile: Some(auth_user),
             unread,
+            notifs,
         }
         .render()
         .unwrap(),
@@ -1008,6 +1167,7 @@ struct ProfileSettingsTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     metadata: String,
 }
 
@@ -1036,12 +1196,18 @@ pub async fn profile_settings_request(
         Err(_) => 0,
     };
 
+    let notifs = database
+        .auth
+        .get_notification_count_by_recipient(auth_user.username.to_owned())
+        .await;
+
     Html(
         ProfileSettingsTemplate {
             config: database.server_options,
             metadata: serde_json::to_string(&auth_user.metadata).unwrap(),
             profile: Some(auth_user),
             unread,
+            notifs,
         }
         .render()
         .unwrap(),
@@ -1054,6 +1220,7 @@ struct PrivacySettingsTemplate {
     config: Config,
     profile: Option<Profile>,
     unread: usize,
+    notifs: usize,
     metadata: String,
 }
 
@@ -1082,12 +1249,73 @@ pub async fn privacy_settings_request(
         Err(_) => 0,
     };
 
+    let notifs = database
+        .auth
+        .get_notification_count_by_recipient(auth_user.username.to_owned())
+        .await;
+
     Html(
         PrivacySettingsTemplate {
             config: database.server_options,
             metadata: serde_json::to_string(&auth_user.metadata).unwrap(),
             profile: Some(auth_user),
             unread,
+            notifs,
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+#[derive(Template)]
+#[template(path = "notifications.html")]
+struct NotificationsTemplate {
+    config: Config,
+    profile: Option<Profile>,
+    unread: usize,
+    notifs: Vec<Notification>,
+}
+
+/// GET /inbox/notifications
+pub async fn notifications_request(
+    jar: CookieJar,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
+        },
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
+    };
+
+    let unread = match database
+        .get_questions_by_recipient(auth_user.username.to_owned())
+        .await
+    {
+        Ok(unread) => unread.len(),
+        Err(_) => 0,
+    };
+
+    let notifs = match database
+        .auth
+        .get_notifications_by_recipient(auth_user.username.to_owned())
+        .await
+    {
+        Ok(r) => r,
+        Err(_) => return Html(DatabaseError::Other.to_html(database)),
+    };
+
+    Html(
+        NotificationsTemplate {
+            config: database.server_options.clone(),
+            profile: Some(auth_user),
+            unread,
+            notifs,
         }
         .render()
         .unwrap(),
@@ -1103,8 +1331,10 @@ pub async fn routes(database: Database) -> Router {
         .route("/inbox", get(inbox_request))
         .route("/inbox/global", get(global_timeline_request))
         .route("/inbox/compose", get(compose_request))
+        .route("/inbox/notifications", get(notifications_request))
         // profiles
         .route("/question/:id", get(global_question_request))
+        .route("/response/:id", get(response_request))
         .route("/@:username/questions", get(profile_questions_request))
         .route("/@:username/following", get(following_request))
         .route("/@:username/followers", get(followers_request))

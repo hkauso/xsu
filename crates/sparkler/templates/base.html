@@ -83,7 +83,7 @@
             </div>
 
             <div class="flex gap-1">
-                {% if profile.is_some() %}
+                {% block nav_right %}{% endblock %} {% if profile.is_some() %}
                 <a
                     class="button"
                     href="/inbox/compose"
@@ -255,6 +255,7 @@
         <script>
             use("questions", () => {});
             use("responses", () => {});
+            use("notifications", () => {});
 
             (() => {
                 const app = ns("app");

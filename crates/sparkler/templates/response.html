@@ -1,8 +1,8 @@
 {% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
 block head %}
 <meta name="description" content="{{ config.description }}" />
-{% endblock %} {% block nav_left %}
-<a class="button active" href="/">
+{% endblock %} {% block nav_left %} {% if profile.is_some() %}
+<a class="button" href="/">
     <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -35,7 +35,7 @@ block head %}
     <span class="notification">{{ unread }}</span>
     {% endif %}
 </a>
-{% endblock %} {% block nav_right %}
+{% endif %} {% endblock %} {% block nav_right %} {% if profile.is_some() %}
 <a class="button" href="/inbox/notifications">
     <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -53,87 +53,14 @@ block head %}
     <span class="notification">{{ notifs }}</span>
     {% endif %}
 </a>
-{% endblock %} {% block content %}
+{% endif %} {% endblock %} {% block content %}
 <article>
-    {% if questions.len() == 0 %}
-    <main>
-        <p>
-            You've seen everything!
-            <em>For now...</em>
-        </p>
-    </main>
-    {% endif %}
-
     <main class="flex flex-col gap-2">
-        <div class="pillmenu">
-            <a href="/inbox">Inbox</a>
-            <a href="/inbox/global" class="active">Global Questions</a>
-        </div>
-
-        <!-- compose -->
-        <div class="card-nest w-full shadow">
-            <!-- prettier-ignore -->
-            <div class="card">
-                    Ask a global question
-                </div>
-
-            <div class="card">
-                <form id="question_form" class="flex flex-col gap-2">
-                    <textarea
-                        class="w-full"
-                        placeholder="Type your question!"
-                        minlength="1"
-                        maxlength="250"
-                        required
-                        name="content"
-                        id="content"
-                    ></textarea>
-
-                    <div class="flex justify-between w-full gap-1">
-                        <div></div>
-                        <button class="round-lg primary bold">Ask</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <hr />
-
-        <!-- feed -->
-        <p>
-            Global questions from people you follow (and yourself) will show up
-            here!
-        </p>
-
         <!-- prettier-ignore -->
-        {% for question in questions %}
-            {% include "components/global_question.html" %}
-        {% endfor %}
+        {% let is_pinned = false %}
+        {% let show_pin_button = false %}
+        {% let do_not_render_question = false %}
+        {% include "components/response.html" %}
     </main>
 </article>
-
-<script>
-    document.getElementById("question_form").addEventListener("submit", (e) => {
-        e.preventDefault();
-        fetch("/api/v1/questions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                recipient: "@",
-                content: e.target.content.value,
-                anonymous: false,
-            }),
-        })
-            .then((res) => res.json())
-            .then((res) => {
-                trigger("app:shout", [
-                    res.success ? "tip" : "caution",
-                    res.message || "Question asked!",
-                ]);
-
-                e.target.reset();
-            });
-    });
-</script>
 {% call super() %} {% endblock %}

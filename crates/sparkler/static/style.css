@@ -665,6 +665,7 @@ dialog::backdrop {
     right: 0;
     width: 10rem;
     padding: 0.5rem 0;
+    color: var(--color-text-raised);
 }
 
 .dropdown .inner.left {
@@ -681,7 +682,7 @@ dialog::backdrop {
     padding: 0.25rem 1rem;
     font-size: 14px;
     opacity: 50%;
-    color: var(--color-text);
+    color: var(--color-text-raised);
 }
 
 .dropdown .inner .title:not(:first-of-type) {
@@ -696,7 +697,7 @@ dialog::backdrop {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: var(--color-text);
+    color: var(--color-text-raised);
 }
 
 .dropdown .inner a:hover {
@@ -715,7 +716,9 @@ dialog::backdrop {
 
 .question_content p,
 .response_content p,
-.motivational_header p {
+.motivational_header p,
+.notif_title p,
+.notif_content p {
     margin: 0;
     white-space: pre-wrap;
 }

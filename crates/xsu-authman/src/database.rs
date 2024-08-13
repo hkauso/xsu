@@ -1,4 +1,4 @@
-use crate::model::{Group, UserFollow};
+use crate::model::{Group, Notification, NotificationCreate, Permission, UserFollow};
 use crate::model::{Profile, ProfileMetadata, AuthError};
 
 use reqwest::Client as HttpClient;
@@ -97,6 +97,19 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS \"xfollows\" (
                 user      TEXT,
                 following TEXT
+            )",
+        )
+        .execute(c)
+        .await;
+
+        let _ = sqlquery(
+            "CREATE TABLE IF NOT EXISTS \"xnotifications\" (
+                title     TEXT,
+                content   TEXT,
+                address   TEXT,
+                timestamp TEXT,
+                id        TEXT,
+                recipient TEXT
             )",
         )
         .execute(c)
@@ -739,6 +752,7 @@ impl Database {
             .await
         {
             Ok(_) => {
+                // bump counts
                 self.base
                     .cachedb
                     .incr(format!("xsulib.authman.following_count:{}", props.user))
@@ -752,9 +766,273 @@ impl Database {
                     ))
                     .await;
 
+                // create notification
+                if let Err(e) = self
+                    .create_notification(NotificationCreate {
+                        title: format!("[@{}](/@{}) followed you!", props.user, props.user),
+                        content: String::new(),
+                        address: format!("/@{}", props.user),
+                        recipient: props.following.clone(),
+                    })
+                    .await
+                {
+                    return Err(e);
+                };
+
+                // return
                 Ok(())
             }
             Err(_) => Err(AuthError::Other),
         }
+    }
+
+    // notifications
+
+    // GET
+    /// Get an existing notification
+    ///
+    /// ## Arguments:
+    /// * `id`
+    pub async fn get_notification(&self, id: String) -> Result<Notification> {
+        // check in cache
+        match self
+            .base
+            .cachedb
+            .get(format!("xsulib.authman.notification:{}", id))
+            .await
+        {
+            Some(c) => return Ok(serde_json::from_str::<Notification>(c.as_str()).unwrap()),
+            None => (),
+        };
+
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"xnotifications\" WHERE \"id\" = ?"
+        } else {
+            "SELECT * FROM \"xnotifications\" WHERE \"id\" = $1"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).bind::<&String>(&id).fetch_one(c).await {
+            Ok(p) => self.base.textify_row(p, Vec::new()).0,
+            Err(_) => return Err(AuthError::NotFound),
+        };
+
+        // return
+        let notification = Notification {
+            title: res.get("title").unwrap().to_string(),
+            content: res.get("content").unwrap().to_string(),
+            address: res.get("address").unwrap().to_string(),
+            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+            id: res.get("id").unwrap().to_string(),
+            recipient: res.get("recipient").unwrap().to_string(),
+        };
+
+        // store in cache
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.authman.notification:{}", id),
+                serde_json::to_string::<Notification>(&notification).unwrap(),
+            )
+            .await;
+
+        // return
+        Ok(notification)
+    }
+
+    /// Get all notifications by their recipient
+    ///
+    /// ## Arguments:
+    /// * `recipient`
+    pub async fn get_notifications_by_recipient(
+        &self,
+        recipient: String,
+    ) -> Result<Vec<Notification>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"xnotifications\" WHERE \"recipient\" = ? ORDER BY \"timestamp\" DESC"
+        } else {
+            "SELECT * FROM \"xnotifications\" WHERE \"recipient\" = $1 ORDER BY \"timestamp\" DESC"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&recipient.to_lowercase())
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<Notification> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    out.push(Notification {
+                        title: res.get("title").unwrap().to_string(),
+                        content: res.get("content").unwrap().to_string(),
+                        address: res.get("address").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                        id: res.get("id").unwrap().to_string(),
+                        recipient: res.get("recipient").unwrap().to_string(),
+                    });
+                }
+
+                out
+            }
+            Err(_) => return Err(AuthError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
+    /// Get the number of notifications by their recipient
+    ///
+    /// ## Arguments:
+    /// * `recipient`
+    pub async fn get_notification_count_by_recipient(&self, recipient: String) -> usize {
+        // attempt to fetch from cache
+        if let Some(count) = self
+            .base
+            .cachedb
+            .get(format!("xsulib.authman.notification_count:{}", recipient))
+            .await
+        {
+            return count.parse::<usize>().unwrap_or(0);
+        };
+
+        // fetch from database
+        let count = self
+            .get_notifications_by_recipient(recipient.clone())
+            .await
+            .unwrap_or(Vec::new())
+            .len();
+
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.authman.notification_count:{}", recipient),
+                count.to_string(),
+            )
+            .await;
+
+        count
+    }
+
+    // SET
+    /// Create a new notification
+    ///
+    /// ## Arguments:
+    /// * `props` - [`QuestionCreate`]
+    pub async fn create_notification(&self, props: NotificationCreate) -> Result<()> {
+        let notification = Notification {
+            title: props.title,
+            content: props.content,
+            address: props.address,
+            timestamp: utility::unix_epoch_timestamp(),
+            id: utility::random_id(),
+            recipient: props.recipient,
+        };
+
+        // create notification
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "INSERT INTO \"xnotifications\" VALUES (?, ?, ?, ?, ?, ?)"
+        } else {
+            "INSERT INTO \"xnotifications\" VALEUS ($1, $2, $3, $4, $5, $6)"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        match sqlquery(&query)
+            .bind::<&String>(&notification.title)
+            .bind::<&String>(&notification.content)
+            .bind::<&String>(&notification.address)
+            .bind::<&String>(&notification.timestamp.to_string())
+            .bind::<&String>(&notification.id)
+            .bind::<&String>(&notification.recipient)
+            .execute(c)
+            .await
+        {
+            Ok(_) => {
+                // incr notifications count
+                self.base
+                    .cachedb
+                    .incr(format!(
+                        "xsulib.authman.notification_count:{}",
+                        notification.recipient
+                    ))
+                    .await;
+
+                // ...
+                return Ok(());
+            }
+            Err(_) => return Err(AuthError::Other),
+        };
+    }
+
+    /// Delete an existing notification
+    ///
+    /// Notifications can only be deleted by their recipient.
+    ///
+    /// ## Arguments:
+    /// * `id` - the ID of the notification
+    /// * `user` - the user doing this
+    pub async fn delete_notification(&self, id: String, user: Profile) -> Result<()> {
+        // make sure notification exists
+        let notification = match self.get_notification(id.clone()).await {
+            Ok(n) => n,
+            Err(e) => return Err(e),
+        };
+
+        // check username
+        if user.username != notification.recipient {
+            // check permission
+            let group = match self.get_group_by_id(user.group).await {
+                Ok(g) => g,
+                Err(_) => return Err(AuthError::Other),
+            };
+
+            if !group.permissions.contains(&Permission::Manager) {
+                return Err(AuthError::NotAllowed);
+            }
+        }
+
+        // delete notification
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "DELETE FROM \"xnotifications\" WHERE \"id\" = ?"
+        } else {
+            "DELETE FROM \"xnotifications\" WHERE \"id\" = $1"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        match sqlquery(&query).bind::<&String>(&id).execute(c).await {
+            Ok(_) => {
+                // decr notifications count
+                self.base
+                    .cachedb
+                    .remove(format!(
+                        "xsulib.authman.notification_count:{}",
+                        notification.recipient
+                    ))
+                    .await;
+
+                // remove from cache
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.authman.notification:{}", id))
+                    .await;
+
+                // return
+                return Ok(());
+            }
+            Err(_) => return Err(AuthError::Other),
+        };
     }
 }

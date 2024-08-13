@@ -4,7 +4,7 @@ use crate::model::{DatabaseError, Question};
 
 use xsu_dataman::utility;
 use xsu_dataman::query as sqlquery;
-use xsu_authman::model::{Permission, Profile};
+use xsu_authman::model::{NotificationCreate, Permission, Profile};
 
 pub type Result<T> = std::result::Result<T, DatabaseError>;
 
@@ -419,7 +419,7 @@ impl Database {
             timestamp: utility::unix_epoch_timestamp(),
         };
 
-        // create document
+        // create question
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
             "INSERT INTO \"xquestions\" VALUES (?, ?, ?, ?, ?)"
@@ -924,6 +924,35 @@ impl Database {
             .await
         {
             Ok(_) => {
+                // create notification
+                if (question.recipient != question.author) && question.author != "anonymous" {
+                    if let Err(_) = self
+                        .auth
+                        .create_notification(NotificationCreate {
+                            title: format!(
+                                "[@{}](/@{}) responded to a question you asked!",
+                                question.recipient, question.recipient
+                            ),
+                            content: format!(
+                                "{}: \"{}...\"",
+                                question.recipient,
+                                // we're only going to show 50 characters of the response in the notification
+                                response
+                                    .content
+                                    .clone()
+                                    .chars()
+                                    .take(50)
+                                    .collect::<String>()
+                            ),
+                            address: format!("/response/{}", response.id),
+                            recipient: question.author,
+                        })
+                        .await
+                    {
+                        return Err(DatabaseError::Other);
+                    };
+                }
+
                 // handle global questions
                 if question.recipient == "@" {
                     // this is a global ask, we need to respond to it and then just move on

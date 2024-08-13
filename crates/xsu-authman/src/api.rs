@@ -6,6 +6,7 @@ use crate::model::{
 };
 use axum::body::Bytes;
 use axum::http::HeaderMap;
+use axum::routing::delete;
 use xsu_dataman::DefaultReturn;
 
 use axum::response::IntoResponse;
@@ -24,6 +25,8 @@ pub fn routes(database: Database) -> Router {
         .route("/profile/:username/avatar", get(profile_avatar_request))
         .route("/profile/:username/follow", get(profile_follow_request))
         .route("/profile/:username", get(profile_inspect_request))
+        // notifications
+        .route("/notifications/:id", delete(delete_notification_request))
         // me
         .route("/me", get(me_request))
         // account
@@ -151,6 +154,52 @@ pub async fn login_request(
         })
         .unwrap(),
     )
+}
+
+/// Delete a notification
+pub async fn delete_notification_request(
+    jar: CookieJar,
+    Path(id): Path<String>,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                });
+            }
+        },
+        None => {
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+    };
+
+    // return
+    if let Err(e) = database.delete_notification(id, auth_user).await {
+        return Json(DefaultReturn {
+            success: false,
+            message: e.to_string(),
+            payload: (),
+        });
+    }
+
+    Json(DefaultReturn {
+        success: true,
+        message: "Notification deleted".to_string(),
+        payload: (),
+    })
 }
 
 /// Returns the current user's username

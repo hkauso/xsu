@@ -75,6 +75,23 @@ pub struct UserFollow {
     pub following: String,
 }
 
+/// Basic notification structure
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Notification {
+    /// The title of the notification
+    pub title: String,
+    /// The content of the notification
+    pub content: String,
+    /// The address of the notification (where it goes)
+    pub address: String,
+    /// The timestamp of when the notification was created
+    pub timestamp: u128,
+    /// The ID of the notification
+    pub id: String,
+    /// The recipient of the notification
+    pub recipient: String,
+}
+
 /// xsu system permission
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Permission {
@@ -123,6 +140,14 @@ pub struct SetProfileMetadata {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SetProfileGroup {
     pub group: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NotificationCreate {
+    pub title: String,
+    pub content: String,
+    pub address: String,
+    pub recipient: String,
 }
 
 /// General API errors
