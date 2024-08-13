@@ -28,12 +28,13 @@
     <!-- pinned -->
     <!-- prettier-ignore -->
     {% if let Some(pinned) = pinned %}
-        {% let response = pinned %}
-        {% let is_pinned = true %}
-        {% let show_pin_button = true %}
-        {% let do_not_render_question = false %}
-        {% let show_comments = true %}
-        {% include "components/response.html" %}
+        {% for response in pinned %}
+            {% let is_pinned = true %}
+            {% let show_pin_button = true %}
+            {% let do_not_render_question = false %}
+            {% let show_comments = true %}
+            {% include "components/response.html" %}
+        {% endfor %}
     <hr />
     {% endif %}
 

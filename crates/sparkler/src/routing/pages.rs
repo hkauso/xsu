@@ -232,7 +232,7 @@ struct ProfileTemplate {
     following_count: usize,
     is_following: bool,
     metadata: String,
-    pinned: Option<(QuestionResponse, usize)>,
+    pinned: Option<Vec<(QuestionResponse, usize)>>,
     page: i32,
     // ...
     lock_profile: bool,
@@ -316,10 +316,16 @@ pub async fn profile_request(
         if pinned.is_empty() {
             None
         } else {
-            match database.get_response(pinned.to_string()).await {
-                Ok(response) => Some(response),
-                Err(_) => None,
+            let mut out = Vec::new();
+
+            for id in pinned.split(",") {
+                match database.get_response(id.to_string()).await {
+                    Ok(response) => out.push(response),
+                    Err(_) => continue,
+                }
             }
+
+            Some(out)
         }
     } else {
         None

@@ -5,7 +5,7 @@
 {% endblock %} {% block panel %}
 <div class="flex flex-col gap-2">
     <div class="flex flex-col gap-1">
-        <div class="flex flex-wrap items-center gap-1">
+        <div class="checkbox_container">
             <input
                 type="checkbox"
                 name="sparkler:lock_profile"
@@ -13,7 +13,9 @@
                 onchange="update_kv('sparkler:lock_profile', event.target.checked.toString())"
             />
 
-            <label for="sparkler:lock_profile">Lock your profile</label>
+            <label for="sparkler:lock_profile" class="normal">
+                Lock your profile
+            </label>
         </div>
 
         <p class="fade">
@@ -22,7 +24,7 @@
         </p>
     </div>
 
-    <div class="flex flex-wrap items-center gap-1">
+    <div class="checkbox_container">
         <input
             type="checkbox"
             name="sparkler:disallow_anonymous"
@@ -30,12 +32,12 @@
             onchange="update_kv('sparkler:disallow_anonymous', event.target.checked.toString())"
         />
 
-        <label for="sparkler:disallow_anonymous">
+        <label for="sparkler:disallow_anonymous" class="normal">
             Disallow anonymous questions on your profile
         </label>
     </div>
 
-    <div class="flex flex-wrap items-center gap-1">
+    <div class="checkbox_container">
         <input
             type="checkbox"
             name="sparkler:require_account"
@@ -43,7 +45,7 @@
             onchange="update_kv('sparkler:require_account', event.target.checked.toString())"
         />
 
-        <label for="sparkler:require_account">
+        <label for="sparkler:require_account" class="normal">
             Require an account to ask questions on your profile
         </label>
     </div>

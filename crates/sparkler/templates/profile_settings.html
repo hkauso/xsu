@@ -53,16 +53,17 @@
     <div class="flex flex-col gap-1">
         <label for="sparkler:pinned">Pinned</label>
 
-        <input
+        <textarea
             name="sparkler:pinned"
             id="sparkler:pinned"
             onchange="update_kv('sparkler:pinned', event.target.value)"
-        />
+        ></textarea>
 
         <p class="fade">
-            Put the ID of the response you want to pin there. Note this will
+            Put the ID of the responses you want to pin there. Note this will
             also pin the question! You can also do this by clicking "Pin" on any
-            of your responses.
+            of your responses. (Responses should be separated by a comma, with a
+            trailing comma at the end!)
         </p>
     </div>
 

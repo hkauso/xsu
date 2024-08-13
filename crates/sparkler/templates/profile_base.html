@@ -327,15 +327,17 @@
                         <!-- prettier-ignore -->
                         <div class="flex justify-between w-full gap-1">
                             {% if profile.is_some() && (disallow_anonymous == false) %}
-                            <label for="anonymous">
+                            <div class="checkbox_container">
                                 <input
                                     type="checkbox"
                                     name="anonymous"
                                     id="anonymous"
                                 />
 
-                                Hide your name
-                            </label>
+                                <label for="anonymous" class="normal">
+                                    Hide your name
+                                </label>
+                            </div>
                             {% else %}
                             <div></div>
                             {% endif %}
@@ -581,8 +583,23 @@
     }
 
     function pin_response(id) {
-        metadata.kv["sparkler:pinned"] = id;
+        if (!metadata.kv["sparkler:pinned"]) {
+            metadata.kv["sparkler:pinned"] = "";
+        }
+
+        metadata.kv["sparkler:pinned"] += `${id},`;
         save_metadata();
+        alert("Pinned!");
+    }
+
+    function unpin_response(id) {
+        metadata.kv["sparkler:pinned"] = metadata.kv["sparkler:pinned"].replace(
+            `${id},`,
+            "",
+        );
+
+        save_metadata();
+        alert("Unpinned!");
     }
 </script>
 {% endif %} {% endif %} {% call super() %} {% endblock %}

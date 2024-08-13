@@ -287,14 +287,19 @@ select:disabled {
     cursor: not-allowed;
 }
 
-label:has(> input) {
+label:has(> input),
+label.normal {
     font-weight: normal;
 }
 
 input[type="checkbox"] {
     outline: none !important;
     padding: 0;
-    height: max-content;
+    height: unset;
+}
+
+.checkbox_container * {
+    display: inline-block;
 }
 
 form,
@@ -859,6 +864,10 @@ dialog::backdrop {
     }
 
     .mobile {
+        display: flex !important;
+    }
+
+    .mobile.flex {
         display: flex !important;
     }
 

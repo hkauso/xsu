@@ -1324,7 +1324,7 @@ impl Database {
                 // decr notifications count
                 self.base
                     .cachedb
-                    .remove(format!(
+                    .decr(format!(
                         "xsulib.authman.notification_count:{}",
                         notification.recipient
                     ))
@@ -1335,6 +1335,73 @@ impl Database {
                     .cachedb
                     .remove(format!("xsulib.authman.notification:{}", id))
                     .await;
+
+                // return
+                return Ok(());
+            }
+            Err(_) => return Err(AuthError::Other),
+        };
+    }
+
+    /// Delete all existing notifications by their recipient
+    ///
+    /// ## Arguments:
+    /// * `id` - the ID of the notification
+    /// * `user` - the user doing this
+    pub async fn delete_notifications_by_recipient(
+        &self,
+        recipient: String,
+        user: Profile,
+    ) -> Result<()> {
+        // make sure notifications exists
+        let notifications = match self.get_notifications_by_recipient(recipient.clone()).await {
+            Ok(n) => n,
+            Err(e) => return Err(e),
+        };
+
+        // check username
+        if user.username != recipient {
+            // check permission
+            let group = match self.get_group_by_id(user.group).await {
+                Ok(g) => g,
+                Err(_) => return Err(AuthError::Other),
+            };
+
+            if !group.permissions.contains(&Permission::Manager) {
+                return Err(AuthError::NotAllowed);
+            }
+        }
+
+        // delete notifications
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "DELETE FROM \"xnotifications\" WHERE \"recipient\" = ?"
+        } else {
+            "DELETE FROM \"xnotifications\" WHERE \"recipient\" = $1"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        match sqlquery(&query)
+            .bind::<&String>(&recipient)
+            .execute(c)
+            .await
+        {
+            Ok(_) => {
+                // clear notifications count
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.authman.notification_count:{}", recipient))
+                    .await;
+
+                // clear cache for all deleted notifications
+                for notification in notifications {
+                    // remove from cache
+                    self.base
+                        .cachedb
+                        .remove(format!("xsulib.authman.notification:{}", notification.id))
+                        .await;
+                }
 
                 // return
                 return Ok(());

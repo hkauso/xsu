@@ -29,6 +29,10 @@ pub fn routes(database: Database) -> Router {
         .route("/profile/:username", get(profile_inspect_request))
         // notifications
         .route("/notifications/:id", delete(delete_notification_request))
+        .route(
+            "/notifications/clear",
+            delete(delete_all_notifications_request),
+        )
         // me
         .route("/me/delete", post(delete_me_request))
         .route("/me", get(me_request))
@@ -201,6 +205,54 @@ pub async fn delete_notification_request(
     Json(DefaultReturn {
         success: true,
         message: "Notification deleted".to_string(),
+        payload: (),
+    })
+}
+
+/// Delete the current user's notifications
+pub async fn delete_all_notifications_request(
+    jar: CookieJar,
+    State(database): State<Database>,
+) -> impl IntoResponse {
+    // get user from token
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => ua,
+            Err(e) => {
+                return Json(DefaultReturn {
+                    success: false,
+                    message: e.to_string(),
+                    payload: (),
+                });
+            }
+        },
+        None => {
+            return Json(DefaultReturn {
+                success: false,
+                message: AuthError::NotAllowed.to_string(),
+                payload: (),
+            });
+        }
+    };
+
+    // return
+    if let Err(e) = database
+        .delete_notifications_by_recipient(auth_user.username.clone(), auth_user)
+        .await
+    {
+        return Json(DefaultReturn {
+            success: false,
+            message: e.to_string(),
+            payload: (),
+        });
+    }
+
+    Json(DefaultReturn {
+        success: true,
+        message: "Notifications cleared!".to_string(),
         payload: (),
     })
 }
