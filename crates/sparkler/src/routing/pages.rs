@@ -1,5 +1,6 @@
 use askama_axum::Template;
 use axum::extract::{Path, Query};
+use axum::http::status::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{extract::State, response::Html, Router};
@@ -12,8 +13,19 @@ use crate::config::Config;
 use crate::database::Database;
 use crate::model::{DatabaseError, Question, QuestionResponse};
 
-pub async fn not_found() -> impl IntoResponse {
-    DatabaseError::NotFound.to_string()
+#[derive(Template)]
+#[template(path = "error.html")]
+pub struct ErrorTemplate {
+    pub config: Config,
+    pub profile: Option<Profile>,
+    pub message: String,
+}
+
+pub async fn not_found(State(database): State<Database>) -> impl IntoResponse {
+    (
+        StatusCode::NOT_FOUND,
+        Html(DatabaseError::NotFound.to_html(database)),
+    )
 }
 
 #[derive(Template)]
@@ -64,7 +76,7 @@ pub async fn homepage_request(
             .await
         {
             Ok(responses) => responses,
-            Err(_) => return Html(DatabaseError::Other.to_string()),
+            Err(_) => return Html(DatabaseError::Other.to_html(database)),
         };
 
         return Html(
@@ -105,7 +117,7 @@ pub async fn login_request(jar: CookieJar, State(database): State<Database>) -> 
             .get_profile_by_unhashed(c.value_trimmed().to_string())
             .await
         {
-            Ok(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Ok(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
             Err(_) => None,
         },
         None => None,
@@ -139,7 +151,7 @@ pub async fn sign_up_request(
             .get_profile_by_unhashed(c.value_trimmed().to_string())
             .await
         {
-            Ok(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Ok(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
             Err(_) => None,
         },
         None => None,
@@ -241,7 +253,7 @@ pub async fn profile_request(
         .await
     {
         Ok(responses) => responses,
-        Err(_) => return Html(DatabaseError::Other.to_string()),
+        Err(_) => return Html(DatabaseError::Other.to_html(database)),
     };
 
     let pinned = if let Some(pinned) = other.metadata.kv.get("sparkler:pinned") {
@@ -609,7 +621,7 @@ pub async fn profile_questions_request(
         .await
     {
         Ok(responses) => responses,
-        Err(_) => return Html(DatabaseError::Other.to_string()),
+        Err(_) => return Html(DatabaseError::Other.to_html(database)),
     };
 
     Html(
@@ -693,12 +705,12 @@ pub async fn global_question_request(
 
     let question = match database.get_question(id.clone()).await {
         Ok(ua) => ua,
-        Err(e) => return Html(e.to_string()),
+        Err(e) => return Html(e.to_html(database)),
     };
 
     let responses = match database.get_responses_by_question(id.to_owned()).await {
         Ok(responses) => responses,
-        Err(_) => return Html(DatabaseError::Other.to_string()),
+        Err(_) => return Html(DatabaseError::Other.to_html(database)),
     };
 
     Html(
@@ -731,9 +743,9 @@ pub async fn inbox_request(jar: CookieJar, State(database): State<Database>) -> 
             .await
         {
             Ok(ua) => ua,
-            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
         },
-        None => return Html(DatabaseError::NotAllowed.to_string()),
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
     };
 
     let unread = match database
@@ -741,7 +753,7 @@ pub async fn inbox_request(jar: CookieJar, State(database): State<Database>) -> 
         .await
     {
         Ok(unread) => unread,
-        Err(_) => return Html(DatabaseError::Other.to_string()),
+        Err(_) => return Html(DatabaseError::Other.to_html(database)),
     };
 
     Html(
@@ -776,9 +788,9 @@ pub async fn global_timeline_request(
             .await
         {
             Ok(ua) => ua,
-            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
         },
-        None => return Html(DatabaseError::NotAllowed.to_string()),
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
     };
 
     let unread = match database
@@ -794,7 +806,7 @@ pub async fn global_timeline_request(
         .await
     {
         Ok(r) => r,
-        Err(e) => return Html(e.to_string()),
+        Err(e) => return Html(e.to_html(database)),
     };
 
     Html(
@@ -830,9 +842,9 @@ pub async fn compose_request(
             .await
         {
             Ok(ua) => ua,
-            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
         },
-        None => return Html(DatabaseError::NotAllowed.to_string()),
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
     };
 
     let unread = match database
@@ -880,9 +892,9 @@ pub async fn account_settings_request(
             .await
         {
             Ok(ua) => ua,
-            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
         },
-        None => return Html(DatabaseError::NotAllowed.to_string()),
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
     };
 
     let unread = match database
@@ -926,9 +938,9 @@ pub async fn profile_settings_request(
             .await
         {
             Ok(ua) => ua,
-            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
         },
-        None => return Html(DatabaseError::NotAllowed.to_string()),
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
     };
 
     let unread = match database
@@ -972,9 +984,9 @@ pub async fn privacy_settings_request(
             .await
         {
             Ok(ua) => ua,
-            Err(_) => return Html(DatabaseError::NotAllowed.to_string()),
+            Err(_) => return Html(DatabaseError::NotAllowed.to_html(database)),
         },
-        None => return Html(DatabaseError::NotAllowed.to_string()),
+        None => return Html(DatabaseError::NotAllowed.to_html(database)),
     };
 
     let unread = match database

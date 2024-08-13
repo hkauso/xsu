@@ -1,5 +1,5 @@
 //! Sparkler server
-use axum::routing::get_service;
+use axum::routing::{get, get_service};
 use axum::Router;
 
 use xsu_authman::{Database as AuthDatabase, api as AuthApi};
@@ -47,7 +47,7 @@ pub async fn main() {
             "/static",
             get_service(tower_http::services::ServeDir::new(static_dir)),
         )
-        .fallback(routing::pages::not_found);
+        .fallback_service(get(routing::pages::not_found).with_state(database.clone()));
 
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", config.port))
         .await

@@ -1,3 +1,4 @@
+use askama_axum::Template;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -6,6 +7,8 @@ use axum::{
 
 use serde::{Deserialize, Serialize};
 use xsu_dataman::DefaultReturn;
+
+use crate::database::Database;
 
 /// A question structure
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,6 +72,16 @@ impl DatabaseError {
             NotFound => String::from("Nothing with this ID could be found!"),
             _ => String::from("An unspecified error has occured"),
         }
+    }
+
+    pub fn to_html(&self, database: Database) -> String {
+        crate::routing::pages::ErrorTemplate {
+            config: database.server_options,
+            profile: None,
+            message: self.to_string(),
+        }
+        .render()
+        .unwrap()
     }
 }
 
