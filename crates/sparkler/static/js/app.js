@@ -47,7 +47,7 @@
     });
 
     // hooks
-    app.define("hook.dropdown", (_, event) => {
+    app.define("hook.dropdown", function (_, event) {
         let target = event.target;
 
         while (!target.matches(".dropdown")) {
@@ -55,23 +55,25 @@
         }
 
         for (const dropdown of Array.from(target.querySelectorAll(".inner"))) {
-            dropdown.setAttribute("open", "true");
+            dropdown.toggleAttribute("open");
         }
     });
 
-    globalThis.addEventListener("click", (event) => {
-        if (
-            event.target.matches(".dropdown") ||
-            event.target.matches("[exclude=dropdown]")
-        ) {
-            return;
-        }
+    app.define("hook.dropdown.init", function (_, bind_to) {
+        bind_to.addEventListener("mousedown", (event) => {
+            if (
+                event.target.matches(".dropdown") ||
+                event.target.matches("[exclude=dropdown]")
+            ) {
+                return;
+            }
 
-        for (const dropdown of Array.from(
-            document.querySelectorAll(".inner[open=true]"),
-        )) {
-            dropdown.removeAttribute("open");
-        }
+            for (const dropdown of Array.from(
+                document.querySelectorAll(".inner[open=true]"),
+            )) {
+                dropdown.removeAttribute("open");
+            }
+        });
     });
 
     // adomonition

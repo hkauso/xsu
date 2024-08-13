@@ -780,13 +780,17 @@ img {
     gap: 0.5rem;
 }
 
+.mobile {
+    display: none !important;
+}
+
 @media screen and (max-width: 900px) {
     .desktop {
         display: none !important;
     }
 
     .mobile {
-        display: block;
+        display: flex !important;
     }
 
     .sm\:w-full {
