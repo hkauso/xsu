@@ -11,7 +11,7 @@ use xsu_authman::model::{Notification, Permission, Profile, UserFollow};
 
 use crate::config::Config;
 use crate::database::Database;
-use crate::model::{DatabaseError, Question, QuestionResponse};
+use crate::model::{DatabaseError, Question, QuestionResponse, ResponseComment};
 
 #[derive(Template)]
 #[template(path = "error.html")]
@@ -42,7 +42,7 @@ struct TimelineTemplate {
     profile: Option<Profile>,
     unread: usize,
     notifs: usize,
-    responses: Vec<QuestionResponse>,
+    responses: Vec<(QuestionResponse, usize)>,
 }
 
 /// GET /
@@ -225,14 +225,14 @@ struct ProfileTemplate {
     unread: usize,
     notifs: usize,
     other: Profile,
-    responses: Vec<QuestionResponse>,
+    responses: Vec<(QuestionResponse, usize)>,
     response_count: usize,
     questions_count: usize,
     followers_count: usize,
     following_count: usize,
     is_following: bool,
     metadata: String,
-    pinned: Option<QuestionResponse>,
+    pinned: Option<(QuestionResponse, usize)>,
     page: i32,
     // ...
     lock_profile: bool,
@@ -876,7 +876,7 @@ struct GlobalQuestionTemplate {
     unread: usize,
     notifs: usize,
     question: Question,
-    responses: Vec<QuestionResponse>,
+    responses: Vec<(QuestionResponse, usize)>,
 }
 
 /// GET /question/:id
@@ -950,6 +950,7 @@ struct ResponseTemplate {
     unread: usize,
     notifs: usize,
     response: QuestionResponse,
+    comments: Vec<ResponseComment>,
     anonymous_username: Option<String>,
     anonymous_avatar: Option<String>,
 }
@@ -959,6 +960,7 @@ pub async fn response_request(
     jar: CookieJar,
     Path(id): Path<String>,
     State(database): State<Database>,
+    Query(query): Query<ProfileQuery>,
 ) -> impl IntoResponse {
     let auth_user = match jar.get("__Secure-Token") {
         Some(c) => match database
@@ -994,7 +996,15 @@ pub async fn response_request(
     };
 
     let response = match database.get_response(id.clone()).await {
-        Ok(ua) => ua,
+        Ok(r) => r,
+        Err(e) => return Html(e.to_html(database)),
+    };
+
+    let comments = match database
+        .get_comments_by_response_paginated(id.clone(), query.page)
+        .await
+    {
+        Ok(r) => r,
         Err(e) => return Html(e.to_html(database)),
     };
 
@@ -1004,7 +1014,8 @@ pub async fn response_request(
             profile: auth_user,
             unread,
             notifs,
-            response,
+            response: response.0,
+            comments,
             anonymous_username: Some("anonymous".to_string()), // TODO: fetch recipient setting
             anonymous_avatar: None,
         }

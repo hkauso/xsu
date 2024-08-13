@@ -60,7 +60,72 @@ block head %}
         {% let is_pinned = false %}
         {% let show_pin_button = false %}
         {% let do_not_render_question = false %}
+        {% let response = (response.clone(), 0) %}
+        {% let show_comments = false %}
         {% include "components/response.html" %}
+
+        <hr />
+        <div class="card-nest w-full shadow" id="comment_field">
+            <div class="card flex flex-col gap-1">Leave a comment</div>
+
+            <div class="card">
+                <form
+                    class="flex flex-col gap-2"
+                    onsubmit="comment(event, '{{ response.id }}')"
+                >
+                    <textarea
+                        class="w-full"
+                        placeholder="Type your comment!"
+                        minlength="1"
+                        maxlength="500"
+                        required
+                        name="content"
+                        id="content"
+                    ></textarea>
+
+                    <div
+                        class="flex w-full gap-1"
+                        style="justify-content: right"
+                    >
+                        <button class="round-lg primary bold">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- prettier-ignore -->
+        {% for comment in comments %}
+            {% include "components/comment.html" %} 
+        {% endfor %}
     </main>
 </article>
+
+<script>
+    function comment(e, response) {
+        e.preventDefault();
+        fetch("/api/v1/comments", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                response,
+                content: e.target.content.value,
+            }),
+        })
+            .then((res) => res.json())
+            .then((res) => {
+                trigger("app:shout", [
+                    res.success ? "tip" : "caution",
+                    res.message || "Comment posted!",
+                ]);
+
+                document
+                    .getElementById("comment_field")
+                    .setAttribute("disabled", "fully");
+
+                e.target.reset();
+            });
+    }
+</script>
 {% call super() %} {% endblock %}

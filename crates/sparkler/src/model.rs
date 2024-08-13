@@ -30,13 +30,28 @@ pub struct Question {
 pub struct QuestionResponse {
     /// The author of the response; cannot be anonymous
     pub author: String,
-    /// ID of the question this response is replying to
+    /// The question this response is replying to
     pub question: Question,
     /// The content of the response
     pub content: String,
     /// The ID of the response
     pub id: String,
     /// The time this response was created
+    pub timestamp: u128,
+}
+
+/// A response structure
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResponseComment {
+    /// The author of the comment; cannot be anonymous
+    pub author: String,
+    /// ID of the response this comment is replying to
+    pub response: String,
+    /// The content of the comment
+    pub content: String,
+    /// The ID of the comment
+    pub id: String,
+    /// The time this comment was created
     pub timestamp: u128,
 }
 
@@ -52,6 +67,12 @@ pub struct QuestionCreate {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ResponseCreate {
     pub question: String,
+    pub content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CommentCreate {
+    pub response: String,
     pub content: String,
 }
 

@@ -356,7 +356,14 @@ fieldset:hover {
     padding: 0;
 }
 
+.card-nest:has(.card:nth-child(3)) .card {
+    /* if the nest has a third element, make cards default to no border-radius */
+    border-radius: 0;
+}
+
 .card-nest .card:first-child {
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     background: var(--color-lowered);
@@ -367,6 +374,8 @@ fieldset:hover {
 .card-nest .card:last-child {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
     box-shadow: none;
 }
 
@@ -714,8 +723,17 @@ dialog::backdrop {
     border-radius: calc(var(--radius) / 2);
 }
 
+.notification.camo {
+    background: inherit;
+    color: inherit;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 0;
+}
+
 .question_content p,
 .response_content p,
+.comment_content p,
 .motivational_header p,
 .notif_title p,
 .notif_content p {

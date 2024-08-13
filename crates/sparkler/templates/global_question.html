@@ -127,6 +127,7 @@ block head %}
                 {% let do_not_render_question = true %}
                 {% let anonymous_username = Some("anonymous") %}
                 {% let anonymous_avatar = Some("") %}
+                {% let show_comments = false %}
                 {% include "components/response.html" %} 
             {% endfor %}
         </div>

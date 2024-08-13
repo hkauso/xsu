@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::model::{QuestionCreate, QuestionResponse, ResponseCreate};
+use crate::model::{CommentCreate, QuestionCreate, QuestionResponse, ResponseComment, ResponseCreate};
 use crate::model::{DatabaseError, Question};
 
 use xsu_dataman::utility;
@@ -53,6 +53,19 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS \"xresponses\" (
                 author    TEXT,
                 question  TEXT,
+                content   TEXT,
+                id        TEXT,
+                timestamp TEXT
+            )",
+        )
+        .execute(c)
+        .await;
+
+        // create comments table
+        let _ = sqlquery(
+            "CREATE TABLE IF NOT EXISTS \"xcomments\" (
+                author    TEXT,
+                response  TEXT,
                 content   TEXT,
                 id        TEXT,
                 timestamp TEXT
@@ -616,7 +629,7 @@ impl Database {
     ///
     /// ## Arguments:
     /// * `id`
-    pub async fn get_response(&self, id: String) -> Result<QuestionResponse> {
+    pub async fn get_response(&self, id: String) -> Result<(QuestionResponse, usize)> {
         // check in cache
         match self
             .base
@@ -624,7 +637,18 @@ impl Database {
             .get(format!("xsulib.sparkler.response:{}", id))
             .await
         {
-            Some(c) => return Ok(serde_json::from_str::<QuestionResponse>(c.as_str()).unwrap()),
+            Some(c) => {
+                match serde_json::from_str::<(QuestionResponse, usize)>(c.as_str()) {
+                    Ok(r) => return Ok(r),
+                    Err(_) => {
+                        // we're storing a bad version that couldn't deserialize, we don't need that...
+                        self.base
+                            .cachedb
+                            .remove(format!("xsulib.sparkler.response:{}", id))
+                            .await
+                    }
+                };
+            }
             None => (),
         };
 
@@ -665,14 +689,17 @@ impl Database {
             .await;
 
         // return
-        Ok(response)
+        Ok((response, self.get_comment_count_by_response(id).await))
     }
 
     /// Get all responses by their author
     ///
     /// ## Arguments:
     /// * `author`
-    pub async fn get_responses_by_author(&self, author: String) -> Result<Vec<QuestionResponse>> {
+    pub async fn get_responses_by_author(
+        &self,
+        author: String,
+    ) -> Result<Vec<(QuestionResponse, usize)>> {
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
@@ -689,20 +716,25 @@ impl Database {
             .await
         {
             Ok(p) => {
-                let mut out: Vec<QuestionResponse> = Vec::new();
+                let mut out: Vec<(QuestionResponse, usize)> = Vec::new();
 
                 for row in p {
                     let res = self.base.textify_row(row, Vec::new()).0;
-                    out.push(QuestionResponse {
-                        author: res.get("author").unwrap().to_string(),
-                        question: match serde_json::from_str(res.get("question").unwrap()) {
-                            Ok(q) => q,
-                            Err(_) => return Err(DatabaseError::ValueError),
+                    let id = res.get("id").unwrap().to_string();
+
+                    out.push((
+                        QuestionResponse {
+                            author: res.get("author").unwrap().to_string(),
+                            question: match serde_json::from_str(res.get("question").unwrap()) {
+                                Ok(q) => q,
+                                Err(_) => return Err(DatabaseError::ValueError),
+                            },
+                            content: res.get("content").unwrap().to_string(),
+                            id: id.clone(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
                         },
-                        content: res.get("content").unwrap().to_string(),
-                        id: res.get("id").unwrap().to_string(),
-                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
-                    });
+                        self.get_comment_count_by_response(id).await,
+                    ));
                 }
 
                 out
@@ -722,7 +754,7 @@ impl Database {
         &self,
         author: String,
         page: i32,
-    ) -> Result<Vec<QuestionResponse>> {
+    ) -> Result<Vec<(QuestionResponse, usize)>> {
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
@@ -738,20 +770,25 @@ impl Database {
             .await
         {
             Ok(p) => {
-                let mut out: Vec<QuestionResponse> = Vec::new();
+                let mut out: Vec<(QuestionResponse, usize)> = Vec::new();
 
                 for row in p {
                     let res = self.base.textify_row(row, Vec::new()).0;
-                    out.push(QuestionResponse {
-                        author: res.get("author").unwrap().to_string(),
-                        question: match serde_json::from_str(res.get("question").unwrap()) {
-                            Ok(q) => q,
-                            Err(_) => return Err(DatabaseError::ValueError),
+                    let id = res.get("id").unwrap().to_string();
+
+                    out.push((
+                        QuestionResponse {
+                            author: res.get("author").unwrap().to_string(),
+                            question: match serde_json::from_str(res.get("question").unwrap()) {
+                                Ok(q) => q,
+                                Err(_) => return Err(DatabaseError::ValueError),
+                            },
+                            content: res.get("content").unwrap().to_string(),
+                            id: id.clone(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
                         },
-                        content: res.get("content").unwrap().to_string(),
-                        id: res.get("id").unwrap().to_string(),
-                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
-                    });
+                        self.get_comment_count_by_response(id).await,
+                    ));
                 }
 
                 out
@@ -800,7 +837,10 @@ impl Database {
     ///
     /// ## Arguments:
     /// * `user`
-    pub async fn get_responses_by_following(&self, user: String) -> Result<Vec<QuestionResponse>> {
+    pub async fn get_responses_by_following(
+        &self,
+        user: String,
+    ) -> Result<Vec<(QuestionResponse, usize)>> {
         // get following
         let following = match self.auth.get_following(user.clone()).await {
             Ok(f) => f,
@@ -843,20 +883,25 @@ impl Database {
             .await
         {
             Ok(p) => {
-                let mut out: Vec<QuestionResponse> = Vec::new();
+                let mut out: Vec<(QuestionResponse, usize)> = Vec::new();
 
                 for row in p {
                     let res = self.base.textify_row(row, Vec::new()).0;
-                    out.push(QuestionResponse {
-                        author: res.get("author").unwrap().to_string(),
-                        question: match serde_json::from_str(res.get("question").unwrap()) {
-                            Ok(q) => q,
-                            Err(_) => return Err(DatabaseError::ValueError),
+                    let id = res.get("id").unwrap().to_string();
+
+                    out.push((
+                        QuestionResponse {
+                            author: res.get("author").unwrap().to_string(),
+                            question: match serde_json::from_str(res.get("question").unwrap()) {
+                                Ok(q) => q,
+                                Err(_) => return Err(DatabaseError::ValueError),
+                            },
+                            content: res.get("content").unwrap().to_string(),
+                            id: id.clone(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
                         },
-                        content: res.get("content").unwrap().to_string(),
-                        id: res.get("id").unwrap().to_string(),
-                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
-                    });
+                        self.get_comment_count_by_response(id).await,
+                    ));
                 }
 
                 out
@@ -872,7 +917,10 @@ impl Database {
     ///
     /// ## Arguments:
     /// * `id`
-    pub async fn get_responses_by_question(&self, id: String) -> Result<Vec<QuestionResponse>> {
+    pub async fn get_responses_by_question(
+        &self,
+        id: String,
+    ) -> Result<Vec<(QuestionResponse, usize)>> {
         // pull from database
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
@@ -889,20 +937,25 @@ impl Database {
             .await
         {
             Ok(p) => {
-                let mut out: Vec<QuestionResponse> = Vec::new();
+                let mut out: Vec<(QuestionResponse, usize)> = Vec::new();
 
                 for row in p {
                     let res = self.base.textify_row(row, Vec::new()).0;
-                    out.push(QuestionResponse {
-                        author: res.get("author").unwrap().to_string(),
-                        question: match serde_json::from_str(res.get("question").unwrap()) {
-                            Ok(q) => q,
-                            Err(_) => return Err(DatabaseError::ValueError),
+                    let id = res.get("id").unwrap().to_string();
+
+                    out.push((
+                        QuestionResponse {
+                            author: res.get("author").unwrap().to_string(),
+                            question: match serde_json::from_str(res.get("question").unwrap()) {
+                                Ok(q) => q,
+                                Err(_) => return Err(DatabaseError::ValueError),
+                            },
+                            content: res.get("content").unwrap().to_string(),
+                            id: id.clone(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
                         },
-                        content: res.get("content").unwrap().to_string(),
-                        id: res.get("id").unwrap().to_string(),
-                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
-                    });
+                        self.get_comment_count_by_response(id).await,
+                    ));
                 }
 
                 out
@@ -1087,7 +1140,7 @@ impl Database {
     pub async fn delete_response(&self, id: String, user: Profile) -> Result<()> {
         // make sure response exists
         let response = match self.get_response(id.clone()).await {
-            Ok(q) => q,
+            Ok(q) => q.0,
             Err(e) => return Err(e),
         };
 
@@ -1144,6 +1197,343 @@ impl Database {
                         ))
                         .await;
                 }
+
+                // return
+                return Ok(());
+            }
+            Err(_) => return Err(DatabaseError::Other),
+        };
+    }
+
+    // responses
+
+    /// Get an existing comment
+    ///
+    /// ## Arguments:
+    /// * `id`
+    pub async fn get_comment(&self, id: String) -> Result<ResponseComment> {
+        // check in cache
+        match self
+            .base
+            .cachedb
+            .get(format!("xsulib.sparkler.comment:{}", id))
+            .await
+        {
+            Some(c) => return Ok(serde_json::from_str::<ResponseComment>(c.as_str()).unwrap()),
+            None => (),
+        };
+
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"xcomments\" WHERE \"id\" = ?"
+        } else {
+            "SELECT * FROM \"xcomments\" WHERE \"id\" = $1"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).bind::<&String>(&id).fetch_one(c).await {
+            Ok(p) => self.base.textify_row(p, Vec::new()).0,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        let comment = ResponseComment {
+            author: res.get("author").unwrap().to_string(),
+            response: res.get("response").unwrap().to_string(),
+            content: res.get("content").unwrap().to_string(),
+            id: res.get("id").unwrap().to_string(),
+            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+        };
+
+        // store in cache
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.sparkler.comment:{}", id),
+                serde_json::to_string::<ResponseComment>(&comment).unwrap(),
+            )
+            .await;
+
+        // return
+        Ok(comment)
+    }
+
+    /// Get all comments by their response ID
+    ///
+    /// ## Arguments:
+    /// * `id`
+    pub async fn get_comments_by_response(&self, id: String) -> Result<Vec<ResponseComment>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"xcomments\" WHERE \"response\" = ? ORDER BY \"timestamp\" DESC"
+        } else {
+            "SELECT * FROM \"xcomments\" WHERE \"response\" = $1 ORDER BY \"timestamp\" DESC"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query).bind::<&String>(&id).fetch_all(c).await {
+            Ok(p) => {
+                let mut out: Vec<ResponseComment> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    out.push(ResponseComment {
+                        author: res.get("author").unwrap().to_string(),
+                        response: res.get("response").unwrap().to_string(),
+                        content: res.get("content").unwrap().to_string(),
+                        id: res.get("id").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                    });
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
+    /// Get all comments by their response ID, 50 at a time
+    ///
+    /// ## Arguments:
+    /// * `id`
+    pub async fn get_comments_by_response_paginated(
+        &self,
+        id: String,
+        page: i32,
+    ) -> Result<Vec<ResponseComment>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            format!("SELECT * FROM \"xcomments\" WHERE \"response\" = ? ORDER BY \"timestamp\" DESC LIMIT 50 OFFSET {}", page * 50)
+        } else {
+            format!("SELECT * FROM \"xcomments\" WHERE \"response\" = $1 ORDER BY \"timestamp\" DESC LIMIT 50 OFFSET {}", page * 50)
+        };
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&id.to_lowercase())
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<ResponseComment> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    out.push(ResponseComment {
+                        author: res.get("author").unwrap().to_string(),
+                        response: res.get("response").unwrap().to_string(),
+                        content: res.get("content").unwrap().to_string(),
+                        id: res.get("id").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                    });
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
+    /// Get the number of comments by their response ID
+    ///
+    /// ## Arguments:
+    /// * `id`
+    pub async fn get_comment_count_by_response(&self, id: String) -> usize {
+        // attempt to fetch from cache
+        if let Some(count) = self
+            .base
+            .cachedb
+            .get(format!("xsulib.sparker.comment_count:{}", id))
+            .await
+        {
+            return count.parse::<usize>().unwrap_or(0);
+        };
+
+        // fetch from database
+        let count = self
+            .get_comments_by_response(id.clone())
+            .await
+            .unwrap_or(Vec::new())
+            .len();
+
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.sparker.comment_count:{}", id),
+                count.to_string(),
+            )
+            .await;
+
+        count
+    }
+
+    /// Create a new comment
+    ///
+    /// Responses can only be created by non-anonymous users
+    ///
+    /// ## Arguments:
+    /// * `props` - [`CommentCreate`]
+    /// * `author` - the username of the user creating the comment
+    pub async fn create_comment(&self, props: CommentCreate, author: String) -> Result<()> {
+        // make sure the response exists
+        let response = match self.get_response(props.response.clone()).await {
+            Ok(q) => q.0,
+            Err(e) => return Err(e),
+        };
+
+        if author == "anonymous" {
+            return Err(DatabaseError::NotAllowed);
+        }
+
+        // check content length
+        if props.content.len() > 250 {
+            return Err(DatabaseError::ValueError);
+        }
+
+        // check author permissions
+        let author = match self.auth.get_profile_by_username(author.clone()).await {
+            Ok(ua) => ua,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        if author.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
+        }
+
+        // ...
+        let comment = ResponseComment {
+            author: author.username,
+            response: response.id.clone(),
+            content: props.content,
+            id: utility::random_id(),
+            timestamp: utility::unix_epoch_timestamp(),
+        };
+
+        // create response
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "INSERT INTO \"xcomments\" VALUES (?, ?, ?, ?, ?)"
+        } else {
+            "INSERT INTO \"xcomments\" VALEUS ($1, $2, $3, $4, $5)"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        match sqlquery(&query)
+            .bind::<&String>(&comment.author)
+            .bind::<&String>(&comment.response)
+            .bind::<&String>(&comment.content)
+            .bind::<&String>(&comment.id)
+            .bind::<&String>(&comment.timestamp.to_string())
+            .execute(c)
+            .await
+        {
+            Ok(_) => {
+                // create notification
+                if response.author != comment.author {
+                    if let Err(_) = self
+                        .auth
+                        .create_notification(NotificationCreate {
+                            title: format!(
+                                "[@{}](/@{}) commented on a response you created!",
+                                comment.author, comment.author
+                            ),
+                            content: format!(
+                                "{}: \"{}...\"",
+                                comment.author,
+                                // we're only going to show 50 characters of the response in the notification
+                                comment.content.clone().chars().take(50).collect::<String>()
+                            ),
+                            address: format!("/response/{}", response.id),
+                            recipient: response.author,
+                        })
+                        .await
+                    {
+                        return Err(DatabaseError::Other);
+                    };
+                }
+
+                // bump comment count
+                self.base
+                    .cachedb
+                    .incr(format!("xsulib.sparker.comment_count:{}", response.id))
+                    .await;
+
+                // return
+                return Ok(());
+            }
+            Err(_) => return Err(DatabaseError::Other),
+        };
+    }
+
+    /// Delete an existing comment
+    ///
+    /// Comments can only be deleted by their author.
+    ///
+    /// ## Arguments:
+    /// * `id` - the ID of the comment
+    /// * `user` - the user doing this
+    pub async fn delete_comment(&self, id: String, user: Profile) -> Result<()> {
+        // make sure comment exists
+        let comment = match self.get_comment(id.clone()).await {
+            Ok(q) => q,
+            Err(e) => return Err(e),
+        };
+
+        // check username
+        if user.username != comment.author {
+            // check permission
+            let group = match self.auth.get_group_by_id(user.group).await {
+                Ok(g) => g,
+                Err(_) => return Err(DatabaseError::Other),
+            };
+
+            if !group.permissions.contains(&Permission::Manager) {
+                return Err(DatabaseError::NotAllowed);
+            }
+        }
+
+        // check user permissions
+        if user.group == -1 {
+            // group -1 (even if it exists) is for marking users as banned
+            return Err(DatabaseError::NotAllowed);
+        }
+
+        // delete question
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "DELETE FROM \"xcomments\" WHERE \"id\" = ?"
+        } else {
+            "DELETE FROM \"xcomments\" WHERE \"id\" = $1"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        match sqlquery(&query).bind::<&String>(&id).execute(c).await {
+            Ok(_) => {
+                // remove from cache
+                self.base
+                    .cachedb
+                    .remove(format!("xsulib.sparkler.comment:{}", id))
+                    .await;
+
+                // decr response count
+                self.base
+                    .cachedb
+                    .decr(format!("xsulib.sparker.comment_count:{}", comment.response))
+                    .await;
 
                 // return
                 return Ok(());
