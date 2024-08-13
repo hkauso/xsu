@@ -633,6 +633,7 @@ dialog {
 dialog .inner {
     padding: 1rem;
     width: 25rem;
+    max-width: 100%;
 }
 
 dialog .inner hr:last-of-type {
@@ -683,6 +684,10 @@ dialog::backdrop {
     color: var(--color-text);
 }
 
+.dropdown .inner .title:not(:first-of-type) {
+    padding-top: 1rem;
+}
+
 .dropdown .inner a {
     width: 100%;
     padding: 0.25rem 1rem;
@@ -712,6 +717,7 @@ dialog::backdrop {
 .response_content p,
 .motivational_header p {
     margin: 0;
+    white-space: pre-wrap;
 }
 
 .sidenav {

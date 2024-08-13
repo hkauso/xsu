@@ -103,6 +103,43 @@ pub async fn homepage_request(
 }
 
 #[derive(Template)]
+#[template(path = "about.html")]
+struct AboutTemplate {
+    config: Config,
+    profile: Option<Profile>,
+    about: String,
+}
+
+/// GET /site/about
+pub async fn about_request(jar: CookieJar, State(database): State<Database>) -> impl IntoResponse {
+    let auth_user = match jar.get("__Secure-Token") {
+        Some(c) => match database
+            .auth
+            .get_profile_by_unhashed(c.value_trimmed().to_string())
+            .await
+        {
+            Ok(ua) => Some(ua),
+            Err(_) => None,
+        },
+        None => None,
+    };
+
+    Html(
+        AboutTemplate {
+            config: database.server_options.clone(),
+            profile: auth_user,
+            about: xsu_util::fs::read(format!(
+                "{}/site/about.md",
+                database.server_options.static_dir
+            ))
+            .unwrap_or(database.server_options.description),
+        }
+        .render()
+        .unwrap(),
+    )
+}
+
+#[derive(Template)]
 #[template(path = "login.html")]
 struct LoginTemplate {
     config: Config,
@@ -1061,9 +1098,12 @@ pub async fn privacy_settings_request(
 pub async fn routes(database: Database) -> Router {
     Router::new()
         .route("/", get(homepage_request))
+        .route("/site/about", get(about_request))
+        // inbox
         .route("/inbox", get(inbox_request))
         .route("/inbox/global", get(global_timeline_request))
         .route("/inbox/compose", get(compose_request))
+        // profiles
         .route("/question/:id", get(global_question_request))
         .route("/@:username/questions", get(profile_questions_request))
         .route("/@:username/following", get(following_request))

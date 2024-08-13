@@ -64,6 +64,7 @@
         </p>
     </div>
 
+    <hr />
     <div class="flex flex-col gap-1">
         <label for="sparkler:website_theme">Website theme</label>
 
@@ -82,6 +83,25 @@
             light theme, but this will show on every other page.
         </p>
     </div>
+
+    <div class="flex flex-col gap-1">
+        <label for="sparkler:allow_profile_themes">Allow profile themes</label>
+
+        <select
+            type="url"
+            name="sparkler:allow_profile_themes"
+            id="sparkler:allow_profile_themes"
+            onchange="update_theme_preference(event.target.options[event.target.selectedIndex].value)"
+        >
+            <option value="yes" id="yes">Yes</option>
+            <option value="no" id="no">No</option>
+        </select>
+
+        <p class="fade">
+            This is a local perference! Changing this to "No" will not show
+            custom profile themes.
+        </p>
+    </div>
 </div>
 
 <script>
@@ -90,11 +110,22 @@
         document.documentElement.setAttribute("class", theme);
     };
 
+    globalThis.update_theme_preference = (pref) => {
+        window.localStorage.setItem("theme-pref", pref);
+    };
+
     // fill current theme
     const current = window.localStorage.getItem("theme");
 
     if (document.getElementById(current)) {
         document.getElementById(current).setAttribute("selected", "true");
+    }
+
+    // fill current theme preference
+    const pref = window.localStorage.getItem("theme-pref");
+
+    if (document.getElementById(pref)) {
+        document.getElementById(pref).setAttribute("selected", "true");
     }
 </script>
 {% call super() %} {% endblock %}

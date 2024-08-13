@@ -5,7 +5,7 @@
 {% endblock %} {% block panel %}
 <div class="flex flex-col gap-2">
     <div class="flex flex-col gap-1">
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center gap-1">
             <input
                 type="checkbox"
                 name="sparkler:lock_profile"
@@ -22,7 +22,7 @@
         </p>
     </div>
 
-    <div class="flex items-center gap-1">
+    <div class="flex flex-wrap items-center gap-1">
         <input
             type="checkbox"
             name="sparkler:disallow_anonymous"
@@ -35,7 +35,7 @@
         </label>
     </div>
 
-    <div class="flex items-center gap-1">
+    <div class="flex flex-wrap items-center gap-1">
         <input
             type="checkbox"
             name="sparkler:require_account"

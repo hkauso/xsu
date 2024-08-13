@@ -319,12 +319,21 @@
 </script>
 
 <script>
+    // theme preference
+    const theme_pref = window.localStorage.getItem("theme-pref") || "yes";
+
+    if (theme_pref === "no") {
+        document.getElementById("stylesheets").remove(); // remove custom theme stuff
+    }
+
+    // profile theme
     const profile_theme = document.getElementById("theme").innerText.trim();
 
-    if (profile_theme !== "") {
+    if (profile_theme !== "" && theme_pref !== "no") {
         document.documentElement.setAttribute("class", profile_theme);
     }
 
+    // ...
     document.getElementById("question_form").addEventListener("submit", (e) => {
         e.preventDefault();
         fetch("/api/v1/questions", {

@@ -10,6 +10,8 @@ For Sparkler to properly serve static assets, you must link the `static` directo
 ln -s /path/to/xsu/crates/sparkler/static ~/.config/xsu-apps/sparkler/static
 ```
 
+You can provide a Markdown file for `/site/about` by creating `static/site/about.md`.
+
 ## Authentication
 
 Sparkler requires a [`xsu-authman`](https://github.com/hkauso/xsu) connection to provide authentication.
