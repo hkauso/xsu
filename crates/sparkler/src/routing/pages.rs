@@ -165,6 +165,8 @@ struct ProfileTemplate {
     followers_count: usize,
     following_count: usize,
     is_following: bool,
+    metadata: String,
+    pinned: Option<QuestionResponse>,
     // ...
     lock_profile: bool,
     disallow_anonymous: bool,
@@ -231,6 +233,19 @@ pub async fn profile_request(
         Err(_) => return Html(DatabaseError::Other.to_string()),
     };
 
+    let pinned = if let Some(pinned) = other.metadata.kv.get("sparkler:pinned") {
+        if pinned.is_empty() {
+            None
+        } else {
+            match database.get_response(pinned.to_string()).await {
+                Ok(response) => Some(response),
+                Err(_) => None,
+            }
+        }
+    } else {
+        None
+    };
+
     Html(
         ProfileTemplate {
             config: database.server_options,
@@ -251,6 +266,8 @@ pub async fn profile_request(
                 .unwrap_or(Vec::new())
                 .len(),
             is_following,
+            metadata: serde_json::to_string(&other.metadata).unwrap(),
+            pinned,
             // ...
             lock_profile: other
                 .metadata

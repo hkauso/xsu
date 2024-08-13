@@ -107,7 +107,7 @@ endblock %} {% block nav_left %} {% if profile.is_some() %}
 
             trigger("app:shout", [
                 res.success ? "tip" : "caution",
-                res.message || "Question deleted!",
+                res.message || "Settings saved!",
             ]);
         });
 </script>
