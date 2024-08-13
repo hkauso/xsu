@@ -1,3 +1,0 @@
-# xsu-util
-
-Simple utilities.

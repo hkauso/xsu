@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "crates/sproc",
-    "crates/xsu-util",
     "crates/xsu-appman", 
     "crates/xsu-open",
     "crates/xsu-authman", 
@@ -12,7 +11,6 @@ members = [
     "crates/xsu-slime", 
     "crates/xsu-lily",
     "crates/sprocd",
-    "crates/xsu-bulb", 
-    "crates/xsu-origami",
+    "crates/xsu-bulb",
     "crates/sparkler"
 ]
