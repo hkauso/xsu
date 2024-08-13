@@ -627,6 +627,7 @@ dialog {
     border-style: none;
     display: none;
     margin: auto;
+    color: var(--color-text);
 }
 
 dialog .inner {

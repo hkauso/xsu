@@ -69,7 +69,9 @@ impl DatabaseError {
         match self {
             NotAllowed => String::from("You are not allowed to do this!"),
             ValueError => String::from("One of the field values given is invalid!"),
-            NotFound => String::from("Nothing with this ID could be found!"),
+            NotFound => {
+                String::from("Nothing with this path exists or you do not have access to it!")
+            }
             _ => String::from("An unspecified error has occured"),
         }
     }
