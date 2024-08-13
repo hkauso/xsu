@@ -84,14 +84,30 @@ endblock %} {% block nav_left %} {% if profile.is_some() %}
 
     // handle update
     globalThis.update_kv = (key, value) => {
-        metadata.kv[key] = value;
+        metadata.kv[key] = value
+            .replaceAll("<", "%lt;")
+            .replaceAll(">", "%gt;");
     };
+
+    // sanitize
+    for (const [key, value] of Object.entries(metadata.kv)) {
+        metadata.kv[key] = value
+            .replaceAll("<", "%lt;")
+            .replaceAll(">", "%gt;");
+
+        // sanitize colors
+        if (key.startsWith("sparkler:color_")) {
+            metadata.kv[key] = value.replaceAll(";", "");
+        }
+    }
 
     // prefill
     setTimeout(() => {
         for (const [key, value] of Object.entries(metadata.kv)) {
             if (document.getElementById(key)) {
-                document.getElementById(key).value = value;
+                document.getElementById(key).value = value
+                    .replaceAll("<", "%lt;")
+                    .replaceAll(">", "%gt;");
 
                 if (value === "true") {
                     document

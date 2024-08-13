@@ -40,7 +40,7 @@ pub fn routes(database: Database) -> Router {
         .route("/register", post(create_profile_request))
         .route("/login", post(login_request))
         .route("/callback", get(callback_request))
-        .route("/logout", get(logout_request))
+        .route("/logout", post(logout_request))
         // ...
         .with_state(database)
 }
