@@ -7,7 +7,7 @@ A simple [Retrospring](https://github.com/Retrospring/retrospring)-inspired serv
 For Sparkler to properly serve static assets, you must link the `static` directory to `~/.config/xsu-apps/sparkler/static`:
 
 ```bash
-ln -s ~/storage/code/xsu/crates/sparkler/static ~/.config/xsu-apps/sparkler/static
+ln -s /path/to/xsu/crates/sparkler/static ~/.config/xsu-apps/sparkler/static
 ```
 
 ## Authentication
