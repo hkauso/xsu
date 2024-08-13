@@ -13,10 +13,11 @@ mod routing;
 /// Main server process
 #[tokio::main]
 pub async fn main() {
-    let config = config::Config::get_config();
+    let mut config = config::Config::get_config();
 
     let home = std::env::var("HOME").expect("failed to read $HOME");
     let static_dir = format!("{home}/.config/xsu-apps/sparkler/static");
+    config.static_dir = static_dir.clone();
 
     // create databases
     let auth_database = AuthDatabase::new(

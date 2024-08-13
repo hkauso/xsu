@@ -15,6 +15,8 @@
     --color-primary: hsl(341, 59%, 45%);
     --color-primary-lowered: hsl(341, 59%, 40%);
     --color-text: hsl(0, 0%, 0%);
+    --color-text-raised: var(--color-text);
+    --color-text-lowered: var(--color-text);
     --color-text-primary-foreground: hsl(0, 0%, 100%);
     --radius: 0.5rem;
 }
@@ -24,7 +26,7 @@
     --color-surface: hsl(0, 0%, 12%);
     --color-lowered: hsl(0, 0%, 18%);
     --color-raised: hsl(0, 0%, 15%);
-    --color-super-lowered: hsl(0, 0%, 5%);
+    --color-super-lowered: hsl(0, 0%, 17%);
     --color-super-raised: hsl(0, 0%, 20%);
     --color-text: hsl(0, 0%, 95%);
 }
@@ -333,6 +335,7 @@ fieldset:hover {
 .card,
 .card-nest {
     background: var(--color-raised);
+    color: var(--color-text-raised) !important;
     border-radius: var(--radius);
     padding: 0.75rem;
     max-width: 100vw;
@@ -351,6 +354,7 @@ fieldset:hover {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     background: var(--color-lowered);
+    color: var(--color-text-lowered) !important;
     box-shadow: none;
 }
 
@@ -607,7 +611,6 @@ img {
     width: var(--size);
     height: var(--size);
     object-fit: cover;
-    background: var(--color-primary);
 }
 
 /* components */
@@ -750,6 +753,10 @@ img {
 
 .flex-col {
     flex-direction: column;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
 }
 
 .justify-center {

@@ -130,6 +130,36 @@
     </div>
 
     <div class="flex flex-col gap-1">
+        <label for="sparkler:color_text_raised">Text raised</label>
+
+        <input
+            name="sparkler:color_text_raised"
+            id="sparkler:color_text_raised"
+            onchange="update_kv('sparkler:color_text_raised', event.target.value)"
+        />
+
+        <p class="fade">
+            Text color used on raised elements (profile card, responses, etc.)
+            everywhere.
+        </p>
+    </div>
+
+    <div class="flex flex-col gap-1">
+        <label for="sparkler:color_text_lowered">Text lowered</label>
+
+        <input
+            name="sparkler:color_text_lowered"
+            id="sparkler:color_text_lowered"
+            onchange="update_kv('sparkler:color_text_lowered', event.target.value)"
+        />
+
+        <p class="fade">
+            Text color used on lowered elements (motivation header, questions,
+            etc.) everywhere.
+        </p>
+    </div>
+
+    <div class="flex flex-col gap-1">
         <label for="sparkler:color_primary">Primary</label>
 
         <input

@@ -348,7 +348,7 @@ impl Database {
         Ok(response)
     }
 
-    /// Get 25 responses by their author
+    /// Get all responses by their author
     ///
     /// ## Arguments:
     /// * `author`
@@ -394,7 +394,40 @@ impl Database {
         Ok(res)
     }
 
-    /// Get 25 responses from people `user` is following
+    /// Get the number of responses by their author
+    ///
+    /// ## Arguments:
+    /// * `author`
+    pub async fn get_response_count_by_author(&self, author: String) -> usize {
+        // attempt to fetch from cache
+        if let Some(count) = self
+            .base
+            .cachedb
+            .get(format!("xsulib.sparker.response_count:{}", author))
+            .await
+        {
+            return count.parse::<usize>().unwrap_or(0);
+        };
+
+        // fetch from database
+        let count = self
+            .get_responses_by_author(author.clone())
+            .await
+            .unwrap_or(Vec::new())
+            .len();
+
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.sparker.response_count:{}", author),
+                count.to_string(),
+            )
+            .await;
+
+        count
+    }
+
+    /// Get 50 responses from people `user` is following
     ///
     /// ## Arguments:
     /// * `user`
@@ -416,9 +449,9 @@ impl Database {
         let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
         {
             // we're also going to include our own responses so we don't have to do any complicated stuff to detect if we should start with "OR" (previous)
-            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = ?{query_string} ORDER BY \"timestamp\" DESC")
+            format!("SELECT * FROM \"xresponses\" WHERE \"author\" = ?{query_string} ORDER BY \"timestamp\" DESC LIMIT 50")
         } else {
-            format!( "SELECT * FROM \"xresponses\" WHERE \"author\" = $1{query_string} ORDER BY \"timestamp\" DESC")
+            format!( "SELECT * FROM \"xresponses\" WHERE \"author\" = $1{query_string} ORDER BY \"timestamp\" DESC LIMIT 50")
         };
 
         let c = &self.base.db.client;
@@ -531,6 +564,12 @@ impl Database {
                             .remove(format!("xsulib.sparkler.question:{}", props.question))
                             .await;
 
+                        // bump response count
+                        self.base
+                            .cachedb
+                            .incr(format!("xsulib.sparker.response_count:{}", response.author))
+                            .await;
+
                         // return
                         return Ok(());
                     }
@@ -584,6 +623,12 @@ impl Database {
                 self.base
                     .cachedb
                     .remove(format!("xsulib.sparkler.response:{}", id))
+                    .await;
+
+                // decr response count
+                self.base
+                    .cachedb
+                    .decr(format!("xsulib.sparker.response_count:{}", response.author))
                     .await;
 
                 // return

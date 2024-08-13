@@ -1,5 +1,6 @@
 use crate::database::Database;
 use axum::body::Bytes;
+use std::{io::Read, fs::File};
 
 use axum::response::IntoResponse;
 use axum::{
@@ -16,6 +17,19 @@ pub fn routes(database: Database) -> Router {
         .with_state(database)
 }
 
+fn read_image(static_dir: String, image: String) -> Vec<u8> {
+    let mut bytes = Vec::new();
+
+    for byte in File::open(format!("{static_dir}/images/{image}",))
+        .unwrap()
+        .bytes()
+    {
+        bytes.push(byte.unwrap())
+    }
+
+    bytes
+}
+
 // routes
 
 /// Get a profile's avatar image
@@ -28,8 +42,11 @@ pub async fn avatar_request(
         Ok(ua) => ua,
         Err(_) => {
             return (
-                [("Content-Type", "application/octet-stream")],
-                Bytes::from_static(&[0x0u8]),
+                [("Content-Type", "image/svg+xml")],
+                Bytes::copy_from_slice(&read_image(
+                    database.server_options.static_dir,
+                    "default-avatar.svg".to_string(),
+                )),
             );
         }
     };
@@ -43,8 +60,11 @@ pub async fn avatar_request(
     // get profile image
     if avatar_url.is_empty() {
         return (
-            [("Content-Type", "application/octet-stream")],
-            Bytes::from_static(&[0x0u8]),
+            [("Content-Type", "image/svg+xml")],
+            Bytes::copy_from_slice(&read_image(
+                database.server_options.static_dir,
+                "default-avatar.svg".to_string(),
+            )),
         );
     }
 
@@ -59,8 +79,11 @@ pub async fn avatar_request(
             r.bytes().await.unwrap(),
         ),
         Err(_) => (
-            [("Content-Type", "application/octet-stream")],
-            Bytes::from_static(&[0x0u8]),
+            [("Content-Type", "image/svg+xml")],
+            Bytes::copy_from_slice(&read_image(
+                database.server_options.static_dir,
+                "default-avatar.svg".to_string(),
+            )),
         ),
     }
 }
@@ -75,8 +98,11 @@ pub async fn banner_request(
         Ok(ua) => ua,
         Err(_) => {
             return (
-                [("Content-Type", "application/octet-stream")],
-                Bytes::from_static(&[0x0u8]),
+                [("Content-Type", "image/svg+xml")],
+                Bytes::copy_from_slice(&read_image(
+                    database.server_options.static_dir,
+                    "default-banner.svg".to_string(),
+                )),
             );
         }
     };
@@ -90,8 +116,11 @@ pub async fn banner_request(
     // get profile image
     if banner_url.is_empty() {
         return (
-            [("Content-Type", "application/octet-stream")],
-            Bytes::from_static(&[0x0u8]),
+            [("Content-Type", "image/svg+xml")],
+            Bytes::copy_from_slice(&read_image(
+                database.server_options.static_dir,
+                "default-banner.svg".to_string(),
+            )),
         );
     }
 
@@ -106,8 +135,11 @@ pub async fn banner_request(
             r.bytes().await.unwrap(),
         ),
         Err(_) => (
-            [("Content-Type", "application/octet-stream")],
-            Bytes::from_static(&[0x0u8]),
+            [("Content-Type", "image/svg+xml")],
+            Bytes::copy_from_slice(&read_image(
+                database.server_options.static_dir,
+                "default-banner.svg".to_string(),
+            )),
         ),
     }
 }

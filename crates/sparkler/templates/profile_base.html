@@ -1,0 +1,300 @@
+{% extends "base.html" %} {% block title %}{{ other.username }} - {{ config.name
+}}{% endblock %} {% block head %}
+<!-- prettier-ignore -->
+{% if let Some(biography) = other.metadata.kv.get("sparkler:biography") %}
+{% let biography = biography.replace("\"", "\\\\\"") %}
+<meta name="description" content="{{ biography }}" />
+{% endif %} {% endblock %} {% block nav_left %} {% if profile.is_some() %}
+<a class="button" href="/">
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        aria-label="Home symbol"
+        class="icon"
+    >
+        <path
+            d="M12.97 2.59a1.5 1.5 0 0 0-1.94 0l-7.5 6.363A1.5 1.5 0 0 0 3 10.097V19.5A1.5 1.5 0 0 0 4.5 21h4.75a.75.75 0 0 0 .75-.75V14h4v6.25c0 .414.336.75.75.75h4.75a1.5 1.5 0 0 0 1.5-1.5v-9.403a1.5 1.5 0 0 0-.53-1.144l-7.5-6.363Z"
+        ></path>
+    </svg>
+    Timeline
+</a>
+
+<a class="button" href="/inbox">
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 16 16"
+        width="16"
+        height="16"
+        aria-label="Inbox symbol"
+        class="icon"
+    >
+        <path
+            d="M2.8 2.06A1.75 1.75 0 0 1 4.41 1h7.18c.7 0 1.333.417 1.61 1.06l2.74 6.395c.04.093.06.194.06.295v4.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25v-4.5c0-.101.02-.202.06-.295Zm1.61.44a.25.25 0 0 0-.23.152L1.887 8H4.75a.75.75 0 0 1 .6.3L6.625 10h2.75l1.275-1.7a.75.75 0 0 1 .6-.3h2.863L11.82 2.652a.25.25 0 0 0-.23-.152Zm10.09 7h-2.875l-1.275 1.7a.75.75 0 0 1-.6.3h-3.5a.75.75 0 0 1-.6-.3L4.375 9.5H1.5v3.75c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25Z"
+        ></path>
+    </svg>
+    Inbox {% if unread != 0 %}
+    <span class="notification">{{ unread }}</span>
+    {% endif %}
+</a>
+{% endif %} {% endblock %} {% block content %}
+<article class="flex flex-col gap-2">
+    <img
+        title="{{ other.username }}'s banner"
+        src="/api/v1/profiles/{{ other.username }}/banner"
+        alt=""
+        class="shadow round"
+        style="
+            width: 100%;
+            min-height: 150px;
+            max-height: 440px;
+            object-fit: cover;
+        "
+    />
+
+    <div class="flex flex-collapse gap-2 sm:mt-2">
+        <div
+            id="profile_card"
+            class="card padded flex flex-col gap-2 sm:w-full"
+            style="width: 20rem; padding-top: 0; height: max-content"
+        >
+            <img
+                title="{{ other.username }}'s avatar"
+                src="/api/v1/profiles/{{ other.username }}/avatar"
+                alt=""
+                class="avatar shadow-md"
+                style="--size: 160px; margin: -80px auto 0"
+            />
+
+            <!-- prettier-ignore -->
+            <div id="names">
+                <h3 class="no-margin">
+                    {% if let Some(display_name) = other.metadata.kv.get("sparkler:display_name") %}
+                        {{ display_name }}
+                    {% else %}
+                        {{ other.username }}
+                    {% endif %}
+                </h3>
+
+                <h4 class="no-margin" style="font-weight: normal; opacity: 50%">{{ other.username }}</h4>
+            </div>
+
+            <!-- prettier-ignore -->
+            <div id="biography">
+                {% if let Some(biography) = other.metadata.kv.get("sparkler:biography") %}
+                    {{ xsu_util::ui::render_markdown(biography)|safe }}
+                {% endif %}
+            </div>
+
+            <!-- buttons -->
+            {% if let Some(profile) = profile %} {% if profile.username ==
+            other.username %}
+            <!-- options for account owner -->
+            <hr />
+            <a
+                class="button round-lg w-full bold primary"
+                href="/settings/profile"
+            >
+                Edit Profile
+            </a>
+            {% else %}
+            <!-- follow, etc -->
+            {% if !is_following %}
+            <button
+                class="round-lg w-full bold primary"
+                onclick="follow()"
+                id="follow_button"
+            >
+                Follow
+            </button>
+            {% else %}
+            <button
+                class="round-lg w-full bold"
+                onclick="follow()"
+                id="follow_button"
+            >
+                Unfollow
+            </button>
+            {% endif %} {% endif %} {% endif %}
+        </div>
+
+        <section id="feed" class="flex flex-col gap-2 w-full">
+            <!-- upper -->
+            {% block upper %} {% endblock %}
+
+            <!-- menu -->
+            <div class="pillmenu">{% block pillmenu %}{% endblock %}</div>
+
+            <!-- panel -->
+            <div id="panel" style="display: contents">
+                {% block panel %}{% endblock %}
+            </div>
+        </section>
+    </div>
+</article>
+
+<!-- prettier-ignore -->
+<div id="stylesheets">
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_surface") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-surface: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_lowered") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-lowered: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_super_lowered") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-super-lowered: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_raised") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-raised: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_super_raised") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-super-raised: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_text") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-text: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_text_raised") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-text-raised: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_text_lowered") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-text-lowered: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_primary") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-primary: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+{% if let Some(color) = other.metadata.kv.get("sparkler:color_primary_lowered") %}
+    {% if !color.is_empty() %}
+        <style>:root, * { --color-primary-lowered: {{ color }} !important }</style>
+    {% endif %}
+{% endif %}
+</div>
+
+<script type="text/plain" id="theme">
+    {% if let Some(theme) = other.metadata.kv.get("sparkler:profile_theme") %}
+        {{ theme }}
+    {% endif %}
+</script>
+
+<script>
+    const profile_theme = document.getElementById("theme").innerText.trim();
+
+    if (profile_theme !== "") {
+        document.documentElement.setAttribute("class", profile_theme);
+    }
+
+    document.getElementById("question_form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        fetch("/api/v1/questions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                recipient: "{{ other.username }}",
+                content: e.target.content.value,
+                anonymous: (e.target.anonymous || { checked: true }).checked,
+            }),
+        })
+            .then((res) => res.json())
+            .then((res) => {
+                trigger("app:shout", [
+                    res.success ? "tip" : "caution",
+                    res.message || "Question asked!",
+                ]);
+
+                e.target.reset();
+            });
+    });
+
+    function delete_response(id) {
+        fetch(`/api/v1/responses/${id}`, {
+            method: "DELETE",
+        })
+            .then((res) => res.json())
+            .then((res) => {
+                trigger("app:shout", [
+                    res.success ? "tip" : "caution",
+                    res.message || "Response deleted!",
+                ]);
+
+                document
+                    .getElementById(`response:${id}`)
+                    .setAttribute("disabled", "fully");
+            });
+    }
+
+    function follow() {
+        fetch(`/api/auth/profile/{{ other.username }}/follow`)
+            .then((res) => res.json())
+            .then((res) => {
+                trigger("app:shout", [
+                    res.success ? "tip" : "caution",
+                    res.message || "Toggled user follow!",
+                ]);
+
+                // swap button
+                const button = document.getElementById("follow_button");
+
+                if (button.innerText === "Follow") {
+                    button.classList.remove("primary");
+                    button.innerText = "Unfollow";
+                } else {
+                    button.classList.add("primary");
+                    button.innerText = "Follow";
+                }
+            });
+    }
+</script>
+
+{% if let Some(profile) = profile %} {% if profile.username == other.username %}
+<script type="application/json" id="metadata">
+    {{ metadata|safe }}
+</script>
+
+<script>
+    let metadata = JSON.parse(document.getElementById("metadata").innerHTML);
+
+    async function save_metadata() {
+        const res = await (
+            await fetch("/api/auth/profile/{{ profile.username }}/metadata", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    metadata,
+                }),
+            })
+        ).json();
+
+        trigger("app:shout", [
+            res.success ? "tip" : "caution",
+            res.message || "Settings saved!",
+        ]);
+    }
+
+    function pin_response(id) {
+        metadata.kv["sparkler:pinned"] = id;
+        save_metadata();
+    }
+</script>
+{% endif %} {% endif %} {% call super() %} {% endblock %}

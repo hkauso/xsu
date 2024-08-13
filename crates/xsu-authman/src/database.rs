@@ -285,7 +285,7 @@ impl Database {
             .build()
             .unwrap();
 
-        if regex.captures(&username).iter().len() < 1 {
+        if regex.captures(&username).iter().len() <= 1 {
             return Err(AuthError::ValueError);
         }
 
@@ -557,6 +557,39 @@ impl Database {
         Ok(res)
     }
 
+    /// Get the number of followers `user` has
+    ///
+    /// # Arguments:
+    /// * `user`
+    pub async fn get_followers_count(&self, user: String) -> usize {
+        // attempt to fetch from cache
+        if let Some(count) = self
+            .base
+            .cachedb
+            .get(format!("xsulib.authman.followers_count:{}", user))
+            .await
+        {
+            return count.parse::<usize>().unwrap_or(0);
+        };
+
+        // fetch from database
+        let count = self
+            .get_followers(user.clone())
+            .await
+            .unwrap_or(Vec::new())
+            .len();
+
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.authman.followers_count:{}", user),
+                count.to_string(),
+            )
+            .await;
+
+        count
+    }
+
     /// Get all existing [`UserFollow`]s where `user` is the value of `user`
     ///
     /// # Arguments:
@@ -589,6 +622,39 @@ impl Database {
 
         // return
         Ok(res)
+    }
+
+    /// Get the number of users `user` is following
+    ///
+    /// # Arguments:
+    /// * `user`
+    pub async fn get_following_count(&self, user: String) -> usize {
+        // attempt to fetch from cache
+        if let Some(count) = self
+            .base
+            .cachedb
+            .get(format!("xsulib.authman.following_count:{}", user))
+            .await
+        {
+            return count.parse::<usize>().unwrap_or(0);
+        };
+
+        // fetch from database
+        let count = self
+            .get_following(user.clone())
+            .await
+            .unwrap_or(Vec::new())
+            .len();
+
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.authman.following_count:{}", user),
+                count.to_string(),
+            )
+            .await;
+
+        count
     }
 
     // SET
@@ -637,6 +703,19 @@ impl Database {
                 .await
             {
                 Ok(_) => {
+                    self.base
+                        .cachedb
+                        .decr(format!("xsulib.authman.following_count:{}", props.user))
+                        .await;
+
+                    self.base
+                        .cachedb
+                        .decr(format!(
+                            "xsulib.authman.followers_count:{}",
+                            props.following
+                        ))
+                        .await;
+
                     return Ok(());
                 }
                 Err(_) => return Err(AuthError::Other),
@@ -659,7 +738,22 @@ impl Database {
             .execute(c)
             .await
         {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.base
+                    .cachedb
+                    .incr(format!("xsulib.authman.following_count:{}", props.user))
+                    .await;
+
+                self.base
+                    .cachedb
+                    .incr(format!(
+                        "xsulib.authman.followers_count:{}",
+                        props.following
+                    ))
+                    .await;
+
+                Ok(())
+            }
             Err(_) => Err(AuthError::Other),
         }
     }

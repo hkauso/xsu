@@ -12,6 +12,9 @@ pub struct Config {
     pub name: String,
     /// The description of the site
     pub description: String,
+    /// The location of the static directory, should not be supplied manually as it will be overwritten with `$HOME/.config/xsu-apps/sparkler/static`
+    #[serde(default)]
+    pub static_dir: String,
 }
 
 impl Default for Config {
@@ -20,6 +23,7 @@ impl Default for Config {
             port: 8080,
             name: "Sparkler".to_string(),
             description: "Simple Q&A".to_string(),
+            static_dir: String::new(),
         }
     }
 }
