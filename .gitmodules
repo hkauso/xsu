@@ -4,3 +4,6 @@
 [submodule "crates/xsu-util"]
 	path = crates/xsu-util
 	url = https://github.com/swmff/xsu-util
+[submodule "crates/xsu-dataman"]
+	path = crates/xsu-dataman
+	url = https://github.com/swmff/xsu-dataman
