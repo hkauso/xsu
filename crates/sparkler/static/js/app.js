@@ -54,13 +54,21 @@
             target = target.parentElement;
         }
 
+        // close all others
+        for (const dropdown of Array.from(
+            document.querySelectorAll(".inner[open]"),
+        )) {
+            dropdown.removeAttribute("open");
+        }
+
+        // open
         for (const dropdown of Array.from(target.querySelectorAll(".inner"))) {
             dropdown.toggleAttribute("open");
         }
     });
 
     app.define("hook.dropdown.init", function (_, bind_to) {
-        bind_to.addEventListener("mousedown", (event) => {
+        bind_to.addEventListener("click", (event) => {
             if (
                 event.target.matches(".dropdown") ||
                 event.target.matches("[exclude=dropdown]")
@@ -69,7 +77,7 @@
             }
 
             for (const dropdown of Array.from(
-                document.querySelectorAll(".inner[open=true]"),
+                document.querySelectorAll(".inner[open]"),
             )) {
                 dropdown.removeAttribute("open");
             }

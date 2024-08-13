@@ -162,6 +162,166 @@ impl Database {
         Ok(res)
     }
 
+    /// Get all global questions by their author
+    ///
+    /// ## Arguments:
+    /// * `author`
+    pub async fn get_global_questions_by_author(
+        &self,
+        author: String,
+    ) -> Result<Vec<(Question, i32)>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"xquestions\" WHERE \"author\" = ? AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC"
+        } else {
+            "SELECT * FROM \"xquestions\" WHERE \"author\" = $1 AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&author.to_lowercase())
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<(Question, i32)> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    let id = res.get("id").unwrap().to_string();
+                    out.push((
+                        Question {
+                            author: res.get("author").unwrap().to_string(),
+                            recipient: res.get("recipient").unwrap().to_string(),
+                            content: res.get("content").unwrap().to_string(),
+                            id: res.get("id").unwrap().to_string(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                        },
+                        // get the number of responses the question has
+                        self.base
+                            .cachedb
+                            .get(format!("xsulib.sparker.question_response_count:{}", id))
+                            .await
+                            .unwrap_or(String::from("0"))
+                            .parse::<i32>()
+                            .unwrap_or(0),
+                    ));
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
+    /// Get 50 global questions from people `user` is following
+    ///
+    /// ## Arguments:
+    /// * `user`
+    pub async fn get_global_questions_by_following(
+        &self,
+        user: String,
+    ) -> Result<Vec<(Question, i32)>> {
+        // get following
+        let following = match self.auth.get_following(user.clone()).await {
+            Ok(f) => f,
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // build string
+        let mut query_string = String::new();
+
+        for follow in following {
+            query_string.push_str(&format!(" OR \"author\" = '{}'", follow.following));
+        }
+
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            // we're also going to include our own responses so we don't have to do any complicated stuff to detect if we should start with "OR" (previous)
+            format!("SELECT * FROM \"xquestions\" WHERE \"author\" = ?{query_string} AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50")
+        } else {
+            format!( "SELECT * FROM \"xquestions\" WHERE \"author\" = $1{query_string} AND \"recipient\" = '@' ORDER BY \"timestamp\" DESC LIMIT 50")
+        };
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&user.to_lowercase())
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<(Question, i32)> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    let id = res.get("id").unwrap().to_string();
+                    out.push((
+                        Question {
+                            author: res.get("author").unwrap().to_string(),
+                            recipient: res.get("recipient").unwrap().to_string(),
+                            content: res.get("content").unwrap().to_string(),
+                            id: id.clone(),
+                            timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                        },
+                        // get the number of responses the question has
+                        self.base
+                            .cachedb
+                            .get(format!("xsulib.sparker.question_response_count:{}", id))
+                            .await
+                            .unwrap_or(String::from("0"))
+                            .parse::<i32>()
+                            .unwrap_or(0),
+                    ));
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
+    /// Get the number of global questions by their author
+    ///
+    /// ## Arguments:
+    /// * `author`
+    pub async fn get_global_questions_count_by_author(&self, author: String) -> usize {
+        // attempt to fetch from cache
+        if let Some(count) = self
+            .base
+            .cachedb
+            .get(format!("xsulib.sparker.global_questions_count:{}", author))
+            .await
+        {
+            return count.parse::<usize>().unwrap_or(0);
+        };
+
+        // fetch from database
+        let count = self
+            .get_global_questions_by_author(author.clone())
+            .await
+            .unwrap_or(Vec::new())
+            .len();
+
+        self.base
+            .cachedb
+            .set(
+                format!("xsulib.sparker.global_question_count:{}", author),
+                count.to_string(),
+            )
+            .await;
+
+        count
+    }
+
     /// Create a new question
     ///
     /// ## Arguments:
@@ -174,35 +334,43 @@ impl Database {
         }
 
         // check recipient
-        let recipient = match self
-            .auth
-            .get_profile_by_username(props.recipient.clone())
-            .await
-        {
-            Ok(ua) => ua,
-            Err(_) => return Err(DatabaseError::NotFound),
-        };
+        // "@" is the recipient we use for global questions (questions anybody can respond to)
+        if props.recipient != "@" {
+            let recipient = match self
+                .auth
+                .get_profile_by_username(props.recipient.clone())
+                .await
+            {
+                Ok(ua) => ua,
+                Err(_) => return Err(DatabaseError::NotFound),
+            };
 
-        let profile_locked = recipient
-            .metadata
-            .kv
-            .get("sparkler:lock_profile")
-            .unwrap_or(&"false".to_string())
-            == "true";
+            let profile_locked = recipient
+                .metadata
+                .kv
+                .get("sparkler:lock_profile")
+                .unwrap_or(&"false".to_string())
+                == "true";
 
-        let block_anonymous = recipient
-            .metadata
-            .kv
-            .get("sparkler:disallow_anonymous")
-            .unwrap_or(&"false".to_string())
-            == "true";
+            let block_anonymous = recipient
+                .metadata
+                .kv
+                .get("sparkler:disallow_anonymous")
+                .unwrap_or(&"false".to_string())
+                == "true";
 
-        if profile_locked {
-            return Err(DatabaseError::NotAllowed);
-        }
+            if profile_locked {
+                return Err(DatabaseError::NotAllowed);
+            }
 
-        if (block_anonymous == true) && author == "anonymous" {
-            return Err(DatabaseError::NotAllowed);
+            if (block_anonymous == true) && author == "anonymous" {
+                return Err(DatabaseError::NotAllowed);
+            }
+        } else {
+            // anonymous users cannot ask global questions
+            if author == "anonymous" {
+                return Err(DatabaseError::NotAllowed);
+            }
         }
 
         // ...
@@ -233,14 +401,28 @@ impl Database {
             .execute(c)
             .await
         {
-            Ok(_) => return Ok(()),
+            Ok(_) => {
+                // incr questions count
+                if question.recipient == "@" {
+                    self.base
+                        .cachedb
+                        .incr(format!(
+                            "xsulib.sparker.global_question_count:{}",
+                            question.author
+                        ))
+                        .await;
+                }
+
+                // ...
+                return Ok(());
+            }
             Err(_) => return Err(DatabaseError::Other),
         };
     }
 
     /// Delete an existing question
     ///
-    /// Questions can only be deleted by their recipient.
+    /// Questions can only be deleted by their recipient or the user that asked them.
     ///
     /// ## Arguments:
     /// * `id` - the ID of the question
@@ -253,7 +435,7 @@ impl Database {
         };
 
         // check username
-        if user.username != question.recipient {
+        if (user.username != question.recipient) && (user.username != question.author) {
             // check permission
             let group = match self.auth.get_group_by_id(user.group).await {
                 Ok(g) => g,
@@ -277,6 +459,45 @@ impl Database {
         let c = &self.base.db.client;
         match sqlquery(&query).bind::<&String>(&id).execute(c).await {
             Ok(_) => {
+                // remove all responses if this is a global question
+                if question.recipient == "@" {
+                    // delete responses
+                    let query: String =
+                        if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
+                            "DELETE FROM \"xresponses\" WHERE \"question\" LIKE ?"
+                        } else {
+                            "DELETE FROM \"xresponses\" WHERE \"question\" LIKE $1"
+                        }
+                        .to_string();
+
+                    let c = &self.base.db.client;
+                    if let Err(_) = sqlquery(&query)
+                        .bind::<&String>(&format!("%\"id\":\"{}\"%", question.id))
+                        .execute(c)
+                        .await
+                    {
+                        return Err(DatabaseError::Other);
+                    };
+
+                    // delete response counter
+                    self.base
+                        .cachedb
+                        .remove(format!(
+                            "xsulib.sparker.question_response_count:{}",
+                            question.id
+                        ))
+                        .await;
+
+                    // decr questions count
+                    self.base
+                        .cachedb
+                        .decr(format!(
+                            "xsulib.sparker.global_question_count:{}",
+                            question.author
+                        ))
+                        .await;
+                }
+
                 // remove from cache
                 self.base
                     .cachedb
@@ -486,6 +707,52 @@ impl Database {
         Ok(res)
     }
 
+    /// Get all responses by their question ID
+    ///
+    /// ## Arguments:
+    /// * `id`
+    pub async fn get_responses_by_question(&self, id: String) -> Result<Vec<QuestionResponse>> {
+        // pull from database
+        let query: String = if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql")
+        {
+            "SELECT * FROM \"xresponses\" WHERE \"question\" LIKE ? ORDER BY \"timestamp\" DESC"
+        } else {
+            "SELECT * FROM \"xresponses\" WHERE \"question\" LIKE $1 ORDER BY \"timestamp\" DESC"
+        }
+        .to_string();
+
+        let c = &self.base.db.client;
+        let res = match sqlquery(&query)
+            .bind::<&String>(&format!("%\"id\":\"{}\"%", id))
+            .fetch_all(c)
+            .await
+        {
+            Ok(p) => {
+                let mut out: Vec<QuestionResponse> = Vec::new();
+
+                for row in p {
+                    let res = self.base.textify_row(row, Vec::new()).0;
+                    out.push(QuestionResponse {
+                        author: res.get("author").unwrap().to_string(),
+                        question: match serde_json::from_str(res.get("question").unwrap()) {
+                            Ok(q) => q,
+                            Err(_) => return Err(DatabaseError::ValueError),
+                        },
+                        content: res.get("content").unwrap().to_string(),
+                        id: res.get("id").unwrap().to_string(),
+                        timestamp: res.get("timestamp").unwrap().parse::<u128>().unwrap(),
+                    });
+                }
+
+                out
+            }
+            Err(_) => return Err(DatabaseError::NotFound),
+        };
+
+        // return
+        Ok(res)
+    }
+
     /// Create a new response
     ///
     /// Responses can only be created for questions where `recipient` matches the given `author`
@@ -500,9 +767,14 @@ impl Database {
             Err(e) => return Err(e),
         };
 
-        if question.recipient != author {
-            // cannot respond to a question not asked to us
-            return Err(DatabaseError::NotAllowed);
+        // check permissions
+        if question.recipient != "@" {
+            if question.recipient != author {
+                // cannot respond to a question not asked to us
+                return Err(DatabaseError::NotAllowed);
+            }
+        } else {
+            // TODO: check author privacy settings
         }
 
         // check content length
@@ -542,6 +814,30 @@ impl Database {
             .await
         {
             Ok(_) => {
+                // handle global questions
+                if question.recipient == "@" {
+                    // this is a global ask, we need to respond to it and then just move on
+
+                    // bump question response count
+                    self.base
+                        .cachedb
+                        .incr(format!(
+                            "xsulib.sparker.question_response_count:{}",
+                            question.id
+                        ))
+                        .await;
+
+                    // bump response count
+                    self.base
+                        .cachedb
+                        .incr(format!("xsulib.sparker.response_count:{}", response.author))
+                        .await;
+
+                    return Ok(());
+                }
+
+                // ...
+
                 // delete question
                 let query: String =
                     if (self.base.db.r#type == "sqlite") | (self.base.db.r#type == "mysql") {
@@ -630,6 +926,17 @@ impl Database {
                     .cachedb
                     .decr(format!("xsulib.sparker.response_count:{}", response.author))
                     .await;
+
+                // decr global question response count
+                if response.question.recipient == "@" {
+                    self.base
+                        .cachedb
+                        .decr(format!(
+                            "xsulib.sparker.question_response_count:{}",
+                            response.question.id
+                        ))
+                        .await;
+                }
 
                 // return
                 return Ok(());

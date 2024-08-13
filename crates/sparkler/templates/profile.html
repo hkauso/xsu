@@ -1,60 +1,12 @@
-{% extends "profile_base.html" %} {% block upper %}
-<!-- new question -->
-<div class="card-nest w-full shadow">
-    <!-- prettier-ignore -->
-    <div class="card">
-        {% if let Some(header) = other.metadata.kv.get("sparkler:motivational_header") %}
-            {{ header }}
-        {% else %}
-            Ask a question
-        {% endif %}
-    </div>
-
-    <div class="card">
-        <!-- prettier-ignore -->
-        {% if !lock_profile %}
-        {% if (require_account && profile.is_some()) | (disallow_anonymous && profile.is_some()) | (!require_account && !disallow_anonymous) %}
-        <form id="question_form" class="flex flex-col gap-2">
-            <textarea
-                class="w-full"
-                placeholder="Type your question!"
-                minlength="1"
-                maxlength="250"
-                required
-                name="content"
-                id="content"
-            ></textarea>
-
-            <!-- prettier-ignore -->
-            <div class="flex justify-between w-full gap-1">
-                 {% if profile.is_some() && (disallow_anonymous == false) %}
-                 <label for="anonymous">
-                     <input
-                         type="checkbox"
-                         name="anonymous"
-                         id="anonymous"
-                     />
-
-                     Hide your name
-                 </label>
-                 {% else %}
-                 <div></div>
-                 {% endif %}
-
-                 <button class="round-lg primary bold">Ask</button>
-             </div>
-        </form>
-        {% else %}
-        <b>This profile does not allow anonymous questions.</b>
-        {% endif %} {% else %}
-        <b>This profile is not currently accepting questions.</b>
-        {% endif %}
-    </div>
-</div>
-{% endblock %} {% block pillmenu %}
+{% extends "profile_base.html" %} {% block pillmenu %}
 <a href="/@{{ other.username }}" class="active">
     Answers
     <b class="notification">{{ responses.len() }}</b>
+</a>
+
+<a href="/@{{ other.username }}/questions">
+    Questions
+    <b class="notification">{{ questions_count }}</b>
 </a>
 
 <a href="/@{{ other.username }}/followers">
@@ -74,6 +26,8 @@
     {% if let Some(pinned) = pinned %}
         {% let response = pinned %}
         {% let is_pinned = true %}
+        {% let show_pin_button = true %}
+        {% let do_not_render_question = false %}
         {%  include "components/response.html" %}
     <hr />
     {% endif %}
@@ -82,6 +36,8 @@
     <!-- prettier-ignore -->
     {% for response in responses %}
         {% let is_pinned = false %}
+        {% let show_pin_button = true %}
+        {% let do_not_render_question = false %}
         {% include "components/response.html" %} 
     {% endfor %}
 </div>

@@ -1,0 +1,50 @@
+{% extends "profile_base.html" %} {% block pillmenu %}
+<a href="/@{{ other.username }}">
+    Answers
+    <b class="notification">{{ response_count }}</b>
+</a>
+
+<a href="/@{{ other.username }}/questions" class="active">
+    Questions
+    <b class="notification">{{ questions.len() }}</b>
+</a>
+
+<a href="/@{{ other.username }}/followers">
+    Followers
+    <b class="notification">{{ followers_count }}</b>
+</a>
+
+<a href="/@{{ other.username }}/following">
+    Following
+    <b class="notification">{{ following_count }}</b>
+</a>
+{% endblock %} {% block panel %}
+<!-- global questions -->
+<div id="questions" class="flex flex-col items-center gap-2">
+    {% if profile.is_some() %}
+    <div class="flex justify-between w-full">
+        <div></div>
+        <a href="/inbox/global" class="button bold">
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                aria-label="Plus symbol"
+                class="icon"
+            >
+                <path
+                    d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"
+                ></path>
+            </svg>
+            Ask Global Question
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- prettier-ignore -->
+    {% for question in questions %}
+        {% include "components/global_question.html" %}
+    {% endfor %}
+</div>
+{% call super() %} {% endblock %}

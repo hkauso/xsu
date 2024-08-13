@@ -1,4 +1,5 @@
 <div class="card-nest w-full shadow" id="response:{{ response.id }}">
+    {% if do_not_render_question == false %}
     <div class="card flex flex-col gap-1">
         <div class="flex justify-between gap-1 question_title">
             <div class="footernav">
@@ -39,6 +40,26 @@
                         ></path>
                     </svg>
                 </span>
+                {% endif %} {% if response.question.recipient == "@" %}
+                <a
+                    class="button item primary"
+                    href="/question/{{ response.question.id }}"
+                    title="Global question"
+                    style="height: 24px; min-height: 24px; padding: 0.25rem"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 16 16"
+                        width="16"
+                        height="16"
+                        aria-label="Globe symbol"
+                        class="icon"
+                    >
+                        <path
+                            d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM5.78 8.75a9.64 9.64 0 0 0 1.363 4.177c.255.426.542.832.857 1.215.245-.296.551-.705.857-1.215A9.64 9.64 0 0 0 10.22 8.75Zm4.44-1.5a9.64 9.64 0 0 0-1.363-4.177c-.307-.51-.612-.919-.857-1.215a9.927 9.927 0 0 0-.857 1.215A9.64 9.64 0 0 0 5.78 7.25Zm-5.944 1.5H1.543a6.507 6.507 0 0 0 4.666 5.5c-.123-.181-.24-.365-.352-.552-.715-1.192-1.437-2.874-1.581-4.948Zm-2.733-1.5h2.733c.144-2.074.866-3.756 1.58-4.948.12-.197.237-.381.353-.552a6.507 6.507 0 0 0-4.666 5.5Zm10.181 1.5c-.144 2.074-.866 3.756-1.58 4.948-.12.197-.237.381-.353.552a6.507 6.507 0 0 0 4.666-5.5Zm2.733-1.5a6.507 6.507 0 0 0-4.666-5.5c.123.181.24.365.353.552.714 1.192 1.436 2.874 1.58 4.948Z"
+                        ></path>
+                    </svg>
+                </a>
                 {% endif %}
             </div>
         </div>
@@ -48,8 +69,9 @@
             {{ xsu_util::ui::render_markdown(response.question.content)|safe }}
         </span>
     </div>
+    {% endif %}
 
-    <div class="card flex flex-col gap-1">
+    <div class="card flex flex-col gap-1 response_body">
         <!-- prettier-ignore -->
         <span class="response_content">
             {{ xsu_util::ui::render_markdown(response.content)|safe }}
@@ -100,7 +122,7 @@
                     <b class="title">Manage</b>
 
                     <!-- pin -->
-                    {% if is_pinned == false %}
+                    {% if show_pin_button == true %} {% if is_pinned == false %}
                     <a href="#" onclick="pin_response('{{ response.id }}')">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -132,12 +154,12 @@
                         </svg>
                         Unpin
                     </a>
-                    {% endif %}
+                    {% endif %} {% endif %}
 
                     <!-- ... -->
                     <a
                         href="#"
-                        onclick="delete_response('{{ response.id }}')"
+                        onclick="trigger('responses:delete', ['{{ response.id }}'])"
                         class="red"
                     >
                         <svg
@@ -183,4 +205,14 @@
             </div>
         </div>
     </div>
+
+    {% if do_not_render_question == true %}
+    <div class="card" style="display: none"></div>
+
+    <style>
+        .response_body {
+            border-radius: var(--radius) !important;
+        }
+    </style>
+    {% endif %}
 </div>

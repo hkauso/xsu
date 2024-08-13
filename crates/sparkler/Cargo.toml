@@ -1,9 +1,9 @@
 [package]
 name = "sparkler"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["hkau"]
-description = "Simple Q&A"
+description = "Ask, share, socialize!"
 homepage = "https://swmff.org"
 repository = "https://github.com/hkauso/xsu"
 license = "MIT"

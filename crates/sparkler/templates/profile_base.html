@@ -121,6 +121,58 @@
 
         <section id="feed" class="flex flex-col gap-2 w-full">
             <!-- upper -->
+            <!-- new question -->
+            <div class="card-nest w-full shadow">
+                <!-- prettier-ignore -->
+                <div class="card">
+                    {% if let Some(header) = other.metadata.kv.get("sparkler:motivational_header") %}
+                        {{ header }}
+                    {% else %}
+                        Ask a question
+                    {% endif %}
+                </div>
+
+                <div class="card">
+                    <!-- prettier-ignore -->
+                    {% if !lock_profile %}
+                    {% if (require_account && profile.is_some()) | (disallow_anonymous && profile.is_some()) | (!require_account && !disallow_anonymous) %}
+                    <form id="question_form" class="flex flex-col gap-2">
+                        <textarea
+                            class="w-full"
+                            placeholder="Type your question!"
+                            minlength="1"
+                            maxlength="250"
+                            required
+                            name="content"
+                            id="content"
+                        ></textarea>
+
+                        <!-- prettier-ignore -->
+                        <div class="flex justify-between w-full gap-1">
+                            {% if profile.is_some() && (disallow_anonymous == false) %}
+                            <label for="anonymous">
+                                <input
+                                    type="checkbox"
+                                    name="anonymous"
+                                    id="anonymous"
+                                />
+
+                                Hide your name
+                            </label>
+                            {% else %}
+                            <div></div>
+                            {% endif %}
+
+                            <button class="round-lg primary bold">Ask</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <b>This profile does not allow anonymous questions.</b>
+                    {% endif %} {% else %}
+                    <b>This profile is not currently accepting questions.</b>
+                    {% endif %}
+                </div>
+            </div>
             {% block upper %} {% endblock %}
 
             <!-- menu -->
@@ -229,23 +281,6 @@
                 e.target.reset();
             });
     });
-
-    function delete_response(id) {
-        fetch(`/api/v1/responses/${id}`, {
-            method: "DELETE",
-        })
-            .then((res) => res.json())
-            .then((res) => {
-                trigger("app:shout", [
-                    res.success ? "tip" : "caution",
-                    res.message || "Response deleted!",
-                ]);
-
-                document
-                    .getElementById(`response:${id}`)
-                    .setAttribute("disabled", "fully");
-            });
-    }
 
     function follow() {
         fetch(`/api/auth/profile/{{ other.username }}/follow`)

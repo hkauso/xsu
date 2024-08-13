@@ -24,6 +24,10 @@
         <script src="https://unpkg.com/regns@1.0.0/index.js"></script>
 
         <script>
+            globalThis.ns_config = {
+                root: "/static/js/",
+            };
+
             globalThis._app_base = {
                 ns_store: {},
             };
@@ -195,6 +199,9 @@
         <div id="page">{% block content %}{% endblock %}</div>
 
         <script>
+            use("questions", () => {});
+            use("responses", () => {});
+
             (() => {
                 const app = ns("app");
                 app.clean_date_codes();
