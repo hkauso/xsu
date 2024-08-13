@@ -1,5 +1,7 @@
 {% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
-block content %}
+block head %}
+<meta name="description" content="{{ config.description }}" />
+{% endblock %} {% block content %}
 <main class="flex flex-col gap-2">
     <div
         class="card padded flex flex-col gap-2 justify-center items-center"

@@ -1,5 +1,7 @@
 {% extends "base.html" %} {% block title %}{{ config.name }}{% endblock %} {%
-block nav_left %}
+block head %}
+<meta name="description" content="{{ config.description }}" />
+{% endblock %} {% block nav_left %}
 <a class="button active" href="/">
     <svg
         xmlns="http://www.w3.org/2000/svg"

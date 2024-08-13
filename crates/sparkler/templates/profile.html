@@ -1,5 +1,10 @@
 {% extends "base.html" %} {% block title %}{{ other.username }}{% endblock %} {%
-block nav_left %} {% if profile.is_some() %}
+block head %}
+<!-- prettier-ignore -->
+{% if let Some(biography) = other.metadata.kv.get("sparkler:biography") %}
+{% let biography = biography.replace("\"", "\\\\\"") %}
+<meta name="description" content="{{ biography }}" />
+{% endif %} {% endblock %} {% block nav_left %} {% if profile.is_some() %}
 <a class="button" href="/">
     <svg
         xmlns="http://www.w3.org/2000/svg"
