@@ -931,11 +931,11 @@ impl Database {
                         .create_notification(NotificationCreate {
                             title: format!(
                                 "[@{}](/@{}) responded to a question you asked!",
-                                question.recipient, question.recipient
+                                response.author, response.author
                             ),
                             content: format!(
                                 "{}: \"{}...\"",
-                                question.recipient,
+                                response.author,
                                 // we're only going to show 50 characters of the response in the notification
                                 response
                                     .content

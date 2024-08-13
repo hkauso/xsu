@@ -155,6 +155,8 @@ block head %}
                 document
                     .getElementById(`question:${question}`)
                     .setAttribute("disabled", "fully");
+
+                e.target.reset();
             });
     }
 </script>
