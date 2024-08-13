@@ -27,7 +27,10 @@ pub async fn avatar_request(
     let auth_user = match database.auth.get_profile_by_username(username).await {
         Ok(ua) => ua,
         Err(_) => {
-            return Bytes::from_static(&[0x0u8]);
+            return (
+                [("Content-Type", "application/octet-stream")],
+                Bytes::from_static(&[0x0u8]),
+            );
         }
     };
 
@@ -39,12 +42,26 @@ pub async fn avatar_request(
 
     // get profile image
     if avatar_url.is_empty() {
-        return Bytes::from_static(&[0]);
+        return (
+            [("Content-Type", "application/octet-stream")],
+            Bytes::from_static(&[0x0u8]),
+        );
     }
 
     match database.auth.http.get(avatar_url).send().await {
-        Ok(r) => r.bytes().await.unwrap(),
-        Err(_) => Bytes::from_static(&[0x0u8]),
+        Ok(r) => (
+            [(
+                "Content-Type",
+                mime_guess::from_path(avatar_url)
+                    .first_raw()
+                    .unwrap_or("application/octet-stream"),
+            )],
+            r.bytes().await.unwrap(),
+        ),
+        Err(_) => (
+            [("Content-Type", "application/octet-stream")],
+            Bytes::from_static(&[0x0u8]),
+        ),
     }
 }
 
@@ -57,7 +74,10 @@ pub async fn banner_request(
     let auth_user = match database.auth.get_profile_by_username(username).await {
         Ok(ua) => ua,
         Err(_) => {
-            return Bytes::from_static(&[0x0u8]);
+            return (
+                [("Content-Type", "application/octet-stream")],
+                Bytes::from_static(&[0x0u8]),
+            );
         }
     };
 
@@ -69,11 +89,25 @@ pub async fn banner_request(
 
     // get profile image
     if banner_url.is_empty() {
-        return Bytes::from_static(&[0]);
+        return (
+            [("Content-Type", "application/octet-stream")],
+            Bytes::from_static(&[0x0u8]),
+        );
     }
 
     match database.auth.http.get(banner_url).send().await {
-        Ok(r) => r.bytes().await.unwrap(),
-        Err(_) => Bytes::from_static(&[0x0u8]),
+        Ok(r) => (
+            [(
+                "Content-Type",
+                mime_guess::from_path(banner_url)
+                    .first_raw()
+                    .unwrap_or("application/octet-stream"),
+            )],
+            r.bytes().await.unwrap(),
+        ),
+        Err(_) => (
+            [("Content-Type", "application/octet-stream")],
+            Bytes::from_static(&[0x0u8]),
+        ),
     }
 }

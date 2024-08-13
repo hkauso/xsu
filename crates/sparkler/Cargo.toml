@@ -29,6 +29,7 @@ xsu-dataman = { path = "../xsu-dataman", default-features = false }
 xsu-authman = { path = "../xsu-authman", default-features = false }
 serde_json = "1.0.120"
 regex = "1.10.5"
+mime_guess = "2.0.5"
 
 [[bin]]
 path = "src/main.rs"

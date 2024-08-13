@@ -5,15 +5,16 @@
 {% endblock %} {% block panel %}
 <div class="flex flex-col gap-2">
     <div class="flex flex-col gap-1">
-        <label for="sparkler:lock_profile">
+        <div class="flex items-center gap-1">
             <input
                 type="checkbox"
                 name="sparkler:lock_profile"
                 id="sparkler:lock_profile"
                 onchange="update_kv('sparkler:lock_profile', event.target.checked.toString())"
             />
-            Lock your profile
-        </label>
+
+            <label for="sparkler:lock_profile">Lock your profile</label>
+        </div>
 
         <p class="fade">
             Locking your profile blocks everybody from submitting questions to
@@ -21,26 +22,28 @@
         </p>
     </div>
 
-    <div class="flex flex-col gap-1">
+    <div class="flex items-center gap-1">
+        <input
+            type="checkbox"
+            name="sparkler:disallow_anonymous"
+            id="sparkler:disallow_anonymous"
+            onchange="update_kv('sparkler:disallow_anonymous', event.target.checked.toString())"
+        />
+
         <label for="sparkler:disallow_anonymous">
-            <input
-                type="checkbox"
-                name="sparkler:disallow_anonymous"
-                id="sparkler:disallow_anonymous"
-                onchange="update_kv('sparkler:disallow_anonymous', event.target.checked.toString())"
-            />
             Disallow anonymous questions on your profile
         </label>
     </div>
 
-    <div class="flex flex-col gap-1">
+    <div class="flex items-center gap-1">
+        <input
+            type="checkbox"
+            name="sparkler:require_account"
+            id="sparkler:require_account"
+            onchange="update_kv('sparkler:require_account', event.target.checked.toString())"
+        />
+
         <label for="sparkler:require_account">
-            <input
-                type="checkbox"
-                name="sparkler:require_account"
-                id="sparkler:require_account"
-                onchange="update_kv('sparkler:require_account', event.target.checked.toString())"
-            />
             Require an account to ask questions on your profile
         </label>
     </div>

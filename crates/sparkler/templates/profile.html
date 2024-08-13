@@ -101,10 +101,23 @@ block head %}
             </a>
             {% else %}
             <!-- follow, etc -->
-            <button class="round-lg w-full bold primary" onclick="follow()">
+            {% if !is_following %}
+            <button
+                class="round-lg w-full bold primary"
+                onclick="follow()"
+                id="follow_button"
+            >
                 Follow
             </button>
-            {% endif %} {% endif %}
+            {% else %}
+            <button
+                class="round-lg w-full bold invert"
+                onclick="follow()"
+                id="follow_button"
+            >
+                Unfollow
+            </button>
+            {% endif %} {% endif %} {% endif %}
         </div>
 
         <section id="feed" class="flex flex-col gap-2 w-full">
@@ -439,6 +452,19 @@ block head %}
                     res.success ? "tip" : "caution",
                     res.message || "Toggled user follow!",
                 ]);
+
+                // swap button
+                const button = document.getElementById("follow_button");
+
+                if (button.innerText === "Follow") {
+                    button.classList.remove("primary");
+                    button.classList.add("invert");
+                    button.innerText = "Unfollow";
+                } else {
+                    button.classList.remove("invert");
+                    button.classList.add("primary");
+                    button.innerText = "Follow";
+                }
             });
     }
 </script>

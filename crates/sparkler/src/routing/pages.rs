@@ -164,6 +164,7 @@ struct ProfileTemplate {
     responses: Vec<QuestionResponse>,
     followers_count: usize,
     following_count: usize,
+    is_following: bool,
     // ...
     lock_profile: bool,
     disallow_anonymous: bool,
@@ -209,6 +210,19 @@ pub async fn profile_request(
         Err(e) => return Html(e.to_string()),
     };
 
+    let is_following = if let Some(ref ua) = auth_user {
+        match database
+            .auth
+            .get_follow(ua.username.to_owned(), other.username.clone())
+            .await
+        {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    } else {
+        false
+    };
+
     let responses = match database
         .get_responses_by_author(other.username.to_owned())
         .await
@@ -236,6 +250,7 @@ pub async fn profile_request(
                 .await
                 .unwrap_or(Vec::new())
                 .len(),
+            is_following,
             // ...
             lock_profile: other
                 .metadata
