@@ -15,9 +15,9 @@
 </a>
 {% endblock %} {% block panel %}
 <!-- followers -->
-<div id="followers" class="flex flex-wrap gap-2">
+<div id="followers" class="flex flex-col items-center gap-2">
     {% for card in followers %}
-    <div class="card-nest" style="width: 33.33%">
+    <div class="card-nest w-full">
         <div class="card" style="padding: 0">
             <img
                 title="{{ card.user }}'s banner"
@@ -35,13 +35,13 @@
             />
         </div>
 
-        <div class="card flex flex-col items-center gap-2">
+        <div class="card flex gap-2">
             <img
                 title="{{ card.user }}'s avatar"
                 src="/api/v1/profiles/{{ card.user }}/avatar"
                 alt=""
                 class="avatar shadow-md"
-                style="--size: 80px; margin: -60px auto 0"
+                style="--size: 80px; margin: -50px 0.5rem 0"
             />
 
             <h3 class="no-margin">

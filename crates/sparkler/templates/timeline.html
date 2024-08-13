@@ -48,75 +48,11 @@ block head %}
 
     <main class="flex flex-col gap-2">
         <p>Answers from people you follow (and yourself) will show up here!</p>
+
+        <!-- prettier-ignore -->
         {% for response in responses %}
-        <div class="card-nest w-full shadow" id="response:{{ response.id }}">
-            <div class="card flex flex-col gap-1">
-                <div class="flex justify-between gap-1 question_title">
-                    <div class="footernav">
-                        <b class="flex items-center gap-2 item">
-                            <img
-                                title="{{ response.question.author }}'s avatar"
-                                src="/api/v1/profiles/{{ response.question.author }}/avatar"
-                                alt=""
-                                class="avatar round-sm"
-                                style="--size: 20px"
-                            />
-
-                            {% if response.question.author != "anonymous" %}
-                            <a
-                                href="/@{{ response.question.author }}"
-                                style="color: inherit"
-                            >
-                                {{ response.question.author }}
-                            </a>
-                            {% else %} {{ response.question.author }} {% endif
-                            %}
-                        </b>
-
-                        <span class="date item">
-                            {{ response.question.timestamp }}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- prettier-ignore -->
-                <span class="question_content">
-                    {{ xsu_util::ui::render_markdown(response.question.content)|safe }}
-                </span>
-            </div>
-
-            <div class="card flex flex-col gap-1">
-                <!-- prettier-ignore -->
-                <span class="response_content">
-                    {{ xsu_util::ui::render_markdown(response.content)|safe }}
-                </span>
-
-                <div
-                    class="flex justify-between items-center gap-1 response_title"
-                >
-                    <div class="footernav">
-                        <b class="flex items-center gap-2 item">
-                            <img
-                                title="{{ response.author }}'s avatar"
-                                src="/api/v1/profiles/{{ response.author }}/avatar"
-                                alt=""
-                                class="avatar round-sm"
-                                style="--size: 20px"
-                            />
-
-                            <a
-                                href="/@{{ response.author }}"
-                                style="color: inherit"
-                            >
-                                {{ response.author }}
-                            </a>
-                        </b>
-
-                        <span class="date item">{{ response.timestamp }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+            {% let is_pinned = false %}
+            {% include "components/response.html" %}
         {% endfor %}
     </main>
 </article>

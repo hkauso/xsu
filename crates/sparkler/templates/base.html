@@ -178,6 +178,34 @@
 
         <div id="page">{% block content %}{% endblock %}</div>
 
+        <footer>
+            <article>
+                <main>
+                    <div
+                        class="flex items-center flex-col gap-1 fade"
+                        style="margin-top: 0.25rem"
+                    >
+                        <div class="footernav">
+                            <em class="item">Sparkler</em>
+                            <span class="item">Ask, share, socialize!</span>
+                        </div>
+
+                        <div class="footernav">
+                            {% if let Some(profile) = profile %}
+                            <a class="item" href="/@{{ profile.username }}">
+                                My Profile
+                            </a>
+                            <a class="item" href="/settings">Settings</a>
+                            {% else %}
+                            <a class="item" href="/login">Login</a>
+                            <a class="item" href="/sign_up">Sign Up</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </main>
+            </article>
+        </footer>
+
         <script>
             (() => {
                 const app = ns("app");

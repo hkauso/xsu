@@ -38,6 +38,7 @@ body {
         "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     color: var(--color-text);
     background: var(--color-surface);
+    overflow-x: hidden;
 }
 
 #page {
@@ -408,6 +409,7 @@ h6 {
     width: -moz-max-content;
     width: max-content;
     position: relative;
+    max-width: 100%;
 }
 
 h1 {
