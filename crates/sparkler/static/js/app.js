@@ -127,7 +127,12 @@
     // link filter
     app.define("link_filter", function (_) {
         for (const anchor of Array.from(document.querySelectorAll("a"))) {
-            if (!anchor.href.startsWith("https://")) {
+            const url = new URL(anchor.href);
+            if (
+                !anchor.href.startsWith("https://") |
+                anchor.href.startsWith("/") |
+                (url.orgin === window.location.origin)
+            ) {
                 continue;
             }
 
